@@ -60,6 +60,7 @@
 - **Diagnostics Alert Engine**: Automated checks flagging latency duration limits and cost thresholds, with active/acknowledged workflow support.
 - **Advanced Analytics & Predictions**: Computes P50, P90, P95, and P99 latency percentiles, dynamic anomaly logs, and linear trend predictive forecasts.
 - **Operational Dashboard**: Modern 7-page dark CSS UI console mapping latency Gantt chart timelines, rolling average curves, providers comparative stats, pricing forms, and settings checks.
+- **Database & Environment Integrity**: Rebuilt development environment using official CPython 3.13 configurations, bypassing embedded MySQL Shell runtime conflicts. Corrected lazy-loading relation accesses in the telemetry ingestion layer to prevent async greenlet execution crashes.
 
 ---
 
