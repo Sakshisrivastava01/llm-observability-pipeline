@@ -55,7 +55,7 @@ class TelemetryService:
             )
 
         # Cost limit alerts rules
-        total_cost = sum(span.cost for span in trace.spans)
+        total_cost = sum(float(span.get("cost", 0.0)) for span in data.get("spans", []))
         if total_cost > 0.05:
             alert = Alert(
                 metric_name="cost_dollars",
