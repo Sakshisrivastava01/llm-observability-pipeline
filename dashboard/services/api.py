@@ -96,3 +96,89 @@ class APIService:
             return resp.json()
         except Exception:
             return []
+
+    def acknowledge_alert(self, alert_id: str) -> dict[str, Any]:
+        """Acknowledges a triggered threshold alert."""
+        try:
+            resp = httpx.post(
+                f"{self.base_url}/alerts/{alert_id}/acknowledge", timeout=5.0
+            )
+            return resp.json()
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def upsert_pricing(
+        self,
+        provider: str,
+        model_name: str,
+        input_price: float,
+        output_price: float,
+    ) -> dict[str, Any]:
+        """Registers or updates model pricing config."""
+        try:
+            payload = {
+                "provider": provider,
+                "model_name": model_name,
+                "input_token_price_per_1k": input_price,
+                "output_token_price_per_1k": output_price,
+            }
+            resp = httpx.post(f"{self.base_url}/pricing", json=payload, timeout=5.0)
+            return resp.json()
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def get_pricing(self) -> list[dict[str, Any]]:
+        """Queries all registered pricing configs."""
+        try:
+            resp = httpx.get(f"{self.base_url}/pricing", timeout=5.0)
+            return resp.json()
+        except Exception:
+            return []
+
+    def get_advanced_analytics(self) -> dict[str, Any]:
+        """Queries advanced analytics percentiles, anomalies, and forecasts."""
+        try:
+            resp = httpx.get(f"{self.base_url}/analytics/advanced", timeout=5.0)
+            return resp.json()
+        except Exception:
+            return {
+                "percentiles": {"P50": 0.0, "P90": 0.0, "P95": 0.0, "P99": 0.0},
+                "anomalies": [],
+                "predictions": {
+                    "predicted_latency": 0.0,
+                    "predicted_cost": 0.0,
+                    "predicted_success_rate": 100.0,
+                },
+            }
+
+    def get_analytics_summaries(self, interval: str = "daily") -> dict[str, Any]:
+        """Queries throughput trends and rolling averages."""
+        try:
+            resp = httpx.get(
+                f"{self.base_url}/analytics/summaries?interval={interval}",
+                timeout=5.0,
+            )
+            return resp.json()
+        except Exception:
+            return {"throughput_trends": [], "rolling_averages": []}
+
+    def get_provider_comparison(self) -> dict[str, Any]:
+        """Queries provider statistics comparisons."""
+        try:
+            resp = httpx.get(f"{self.base_url}/analytics/providers", timeout=5.0)
+            return resp.json()
+        except Exception:
+            return {}
+
+    def get_health_diagnostics(self) -> dict[str, Any]:
+        """Queries connection health details for settings status audits."""
+        try:
+            resp = httpx.get(f"{self.base_url}/health/diagnostics", timeout=5.0)
+            return resp.json()
+        except Exception:
+            return {
+                "database": "offline",
+                "openai": "offline",
+                "ollama": "offline",
+                "environment": "unknown",
+            }

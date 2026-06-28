@@ -1,3 +1,6 @@
+import httpx
+import pandas as pd
+import plotly.express as px
 import streamlit as st
 from components.evaluation_table import render_evaluation_table
 from components.navbar import render_navbar
@@ -5,7 +8,7 @@ from services.api import APIService
 
 
 def render() -> None:
-    """Renders the Evaluation page to trigger manual scorer runs and view historical evaluation scores."""
+    """Renders the Evaluation Center with metrics audits, comparison charts, manual run inputs, and file exports."""
     render_navbar("Evaluations Manager")
     api = APIService()
 
@@ -13,6 +16,69 @@ def render() -> None:
     traces = api.get_traces()
     evals = api.get_evaluations()
 
+    # 1. Export Buttons Block
+    st.markdown("### Export Evaluation Reports")
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        try:
+            csv_data = httpx.get(
+                f"{api.base_url}/evaluations/export?format=csv", timeout=5.0
+            ).text
+            st.download_button(
+                label="📥 Export Report to CSV",
+                data=csv_data,
+                file_name="evaluations_report.csv",
+                mime="text/csv",
+                key="exp_eval_csv",
+            )
+        except Exception:
+            st.error("Ingest node offline. Unable to download CSV.")
+    with col_exp2:
+        try:
+            json_data = httpx.get(
+                f"{api.base_url}/evaluations/export?format=json", timeout=5.0
+            ).text
+            st.download_button(
+                label="📥 Export Report to JSON",
+                data=json_data,
+                file_name="evaluations_report.json",
+                mime="application/json",
+                key="exp_eval_json",
+            )
+        except Exception:
+            st.error("Ingest node offline. Unable to download JSON.")
+
+    st.markdown("---")
+
+    # 2. Comparison Metrics Charts
+    st.markdown("### Evaluations History Analytics")
+    if evals:
+        df_ev = pd.DataFrame(evals)
+        # Convert timestamp to date
+        df_ev["date"] = pd.to_datetime(df_ev["timestamp"])
+
+        fig = px.line(
+            df_ev,
+            x="date",
+            y="metric_value",
+            color="metric_name",
+            title="Operational Quality Scores History",
+            labels={"date": "Timeline", "metric_value": "Score (0.0 - 1.0)"},
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font={"color": "#ECECF1"},
+            xaxis={"gridcolor": "rgba(255,255,255,0.05)"},
+            yaxis={"gridcolor": "rgba(255,255,255,0.05)"},
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Insufficient metrics data to map historical score curves.")
+
+    st.markdown("---")
+
+    # 3. Trigger manual evaluations
     st.markdown("### Trigger Manual Evaluator Scorer")
     if traces:
         trace_ids = [t["trace_id"] for t in traces]
@@ -84,7 +150,3 @@ def render() -> None:
     st.markdown("---")
     st.markdown("### Computed Evaluation Auditing Logs")
     render_evaluation_table(evals)
-
-
-class Evaluations:
-    pass

@@ -1,5 +1,6 @@
 from typing import Any
 
+import httpx
 from app.core.config import settings
 from app.providers.base import BaseProvider, ProviderResponse
 
@@ -30,8 +31,16 @@ class OpenAIProvider(BaseProvider):
             "temperature": temperature,
         }
 
-        resp = await self.client.post(url, headers=headers, json=payload, timeout=15.0)
-        resp.raise_for_status()
+        from app.core.circuit_breaker import CircuitBreakerRegistry
+
+        breaker = CircuitBreakerRegistry.get_breaker("openai")
+
+        async def _make_call() -> httpx.Response:
+            r = await self.client.post(url, headers=headers, json=payload, timeout=15.0)
+            r.raise_for_status()
+            return r
+
+        resp = await breaker.call(_make_call)
         data = resp.json()
 
         choice = data["choices"][0]

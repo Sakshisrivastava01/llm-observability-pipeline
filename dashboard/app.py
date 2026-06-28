@@ -36,11 +36,15 @@ if current_page == "Overview":
     overview.render()
 elif current_page == "Trace Explorer":
     traces.render()
-elif current_page == "Model Analytics":
+elif current_page == "Analytics":
     analytics.render()
-elif current_page == "Evaluation":
+elif current_page == "Evaluation Center":
     evaluations.render()
-elif current_page == "Alerts":
+elif current_page == "Alert Center":
     alerts.render()
+elif current_page == "Model Comparison":
+    from pages import model_comparison
+
+    model_comparison.render()
 elif current_page == "Settings":
     settings.render()

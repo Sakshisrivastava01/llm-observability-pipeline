@@ -4,7 +4,7 @@ from services.api import APIService
 
 
 def render() -> None:
-    """Renders the settings page containing connection verification and trace/evaluation simulators."""
+    """Renders deep settings audit checks, pricing configurations, and inference test play areas."""
     render_navbar("System Settings & Playground")
     api = APIService()
 
@@ -13,16 +13,85 @@ def render() -> None:
     st.text_input("Ingest Host Endpoint:", value=api.base_url, disabled=True)
 
     # Health status check button
-    if st.button("Re-Verify System Health"):
-        health = api.get_health()
-        if health.get("status") == "healthy":
-            st.success("API server is connected and operational.")
-        else:
-            st.error("API server is unreachable.")
+    if st.button("Run System Diagnostics Audit"):
+        diagnostics = api.get_health_diagnostics()
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if diagnostics.get("database") == "healthy":
+                st.success("Database status: Operational")
+            else:
+                st.error(f"Database status: Offline ({diagnostics.get('database')})")
+        with col2:
+            if diagnostics.get("openai") == "reachable":
+                st.success("OpenAI connection: Reachable")
+            else:
+                st.error("OpenAI connection: Unreachable")
+        with col3:
+            if diagnostics.get("ollama") == "reachable":
+                st.success("Ollama local connection: Reachable")
+            else:
+                st.warning("Ollama local connection: Offline")
+
+        st.info(f"Ingest Node Environment: {diagnostics.get('environment', 'unknown')}")
 
     st.markdown("---")
 
-    # 2. Query Simulator
+    # 2. Pricing Configuration Panel
+    st.markdown("### Token Pricing Configuration")
+    pricing_list = api.get_pricing()
+    if pricing_list:
+        import pandas as pd
+
+        df_price = pd.DataFrame(pricing_list)
+        df_price.columns = [
+            "ID",
+            "Provider",
+            "Model Name",
+            "Input Token Price ($/1k)",
+            "Output Token Price ($/1k)",
+            "Active Status",
+        ]
+        st.dataframe(df_price, use_container_width=True, hide_index=True)
+    else:
+        st.info("No pricing models custom registered. Default rates are active.")
+
+    with st.expander("Update Model Pricing Rates", expanded=False):
+        with st.form("pricing_form"):
+            prov = st.selectbox("Provider:", ["openai", "ollama"])
+            model_name = st.text_input(
+                "Model name identifier:", placeholder="e.g. gpt-4o, llama3"
+            )
+            input_p = st.number_input(
+                "Input Token cost per 1k ($):", min_value=0.0, format="%.6f"
+            )
+            output_p = st.number_input(
+                "Output Token cost per 1k ($):", min_value=0.0, format="%.6f"
+            )
+            submit_price = st.form_submit_button("Register Rates Configuration")
+
+            if submit_price:
+                if not model_name.strip():
+                    st.error("Model name identifier cannot be empty.")
+                else:
+                    res = api.upsert_pricing(
+                        provider=prov,
+                        model_name=model_name.strip(),
+                        input_price=input_p,
+                        output_price=output_p,
+                    )
+                    if res.get("status") == "success":
+                        st.success(
+                            f"Price configurations updated for: **{res.get('model_name')}**"
+                        )
+                        st.rerun()
+                    else:
+                        st.error(
+                            f"Update failed: {res.get('message', 'unknown error')}"
+                        )
+
+    st.markdown("---")
+
+    # 3. Query Simulator
     st.markdown("### LLM Telemetry & Evaluation Simulator")
     st.write(
         "Submit synthetic queries below to trigger completions, log traces, and calculate evaluation scores."
@@ -104,7 +173,3 @@ def render() -> None:
                 st.info("No evaluations configured for this simulation.")
         else:
             st.error(f"Inference simulation failed: {res.get('message', res)}")
-
-
-class Settings:
-    pass

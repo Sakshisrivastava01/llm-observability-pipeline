@@ -1,72 +1,135 @@
 import pandas as pd
+import plotly.express as px
 import streamlit as st
-from components.charts import render_cost_chart, render_latency_histogram
 from components.navbar import render_navbar
 from services.api import APIService
 
 
 def render() -> None:
-    """Renders the Model Analytics page depicting token metrics, cost curves, and latency trends."""
+    """Renders the Analytics Console featuring percentiles, anomalies, forecasting predictions, and throughput summaries."""
     render_navbar("Model Performance & Cost Analytics")
     api = APIService()
 
-    kpis = api.get_kpis()
-    traces = api.get_traces()
+    # Load advanced analytics metrics
+    advanced = api.get_advanced_analytics()
+    percentiles = advanced.get(
+        "percentiles", {"P50": 0.0, "P90": 0.0, "P95": 0.0, "P99": 0.0}
+    )
+    anomalies = advanced.get("anomalies", [])
+    predictions = advanced.get(
+        "predictions",
+        {
+            "predicted_latency": 0.0,
+            "predicted_cost": 0.0,
+            "predicted_success_rate": 100.0,
+        },
+    )
 
-    col1, col2, col3 = st.columns(3)
+    # 1. Percentiles & Predictions KPIs
+    st.markdown("### Platform Performance Percentiles")
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric(
-            label="Total Tokens Spent",
-            value=f"{int(kpis.get('total_tokens', 0))}",
-            delta="Processed",
-        )
+        st.metric("P50 Latency", f"{percentiles.get('P50', 0.0):.3f}s")
     with col2:
-        st.metric(
-            label="Cumulative Dollars spent",
-            value=f"${kpis.get('total_cost', 0.0):.4f}",
-            delta="Estimated Cost",
-        )
+        st.metric("P90 Latency", f"{percentiles.get('P90', 0.0):.3f}s")
     with col3:
+        st.metric("P95 Latency", f"{percentiles.get('P95', 0.0):.3f}s")
+    with col4:
+        st.metric("P99 Latency", f"{percentiles.get('P99', 0.0):.3f}s")
+
+    st.markdown("---")
+
+    # Analytics forecasting predictions
+    st.markdown("### Next Cycle Predictive Forecasting Summaries")
+    col_p1, col_p2, col_p3 = st.columns(3)
+    with col_p1:
         st.metric(
-            label="System Average Latency",
-            value=f"{kpis.get('avg_latency', 0.0):.2f}s",
-            delta="Pipeline response time",
+            "Forecasted Mean Latency",
+            f"{predictions.get('predicted_latency', 0.0):.3f}s",
+        )
+    with col_p2:
+        st.metric(
+            "Forecasted Token Cost", f"${predictions.get('predicted_cost', 0.0):.6f}"
+        )
+    with col_p3:
+        st.metric(
+            "Forecasted Success Rate",
+            f"{predictions.get('predicted_success_rate', 100.0):.1f}%",
         )
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("---")
 
-    tab1, tab2 = st.tabs(["Latency Trends", "Cost Expenditures Area"])
+    # 2. Time based Throughput Summaries
+    st.markdown("### System Throughput & Rolling Averages")
+    interval = st.selectbox(
+        "Aggregation Interval:", ["hourly", "daily", "weekly", "monthly"]
+    )
+    summaries = api.get_analytics_summaries(interval=interval)
+    throughput = summaries.get("throughput_trends", [])
+    rolling_avgs = summaries.get("rolling_averages", [])
+
+    tab1, tab2 = st.tabs(["Throughput Volumes", "Latency Rolling Averages"])
 
     with tab1:
-        if traces:
-            latencies = []
-            for t in traces:
-                lat = (
-                    pd.to_datetime(t["end_time"]) - pd.to_datetime(t["start_time"])
-                ).total_seconds()
-                latencies.append(lat)
-            render_latency_histogram(latencies)
+        if throughput:
+            df_tp = pd.DataFrame(throughput)
+            fig_tp = px.area(
+                df_tp,
+                x="timestamp",
+                y="requests",
+                title=f"Throughput Volume ({interval.capitalize()})",
+                labels={"timestamp": "Timeline", "requests": "Requests Ingested"},
+                color_discrete_sequence=["#818CF8"],
+            )
+            fig_tp.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font={"color": "#ECECF1"},
+            )
+            st.plotly_chart(fig_tp, use_container_width=True)
         else:
-            st.info("No latency tracking metrics available yet.")
+            st.info("No throughput records logged yet.")
 
     with tab2:
-        if traces:
-            cost_series = []
-            for t in traces:
-                cost_series.append(
-                    {
-                        "timestamp": t["start_time"][:16],
-                        # Use trace metadata or estimated sum from spans
-                        "cost": float(t.get("cost", 0.001)),
-                    }
-                )
-            df_costs = pd.DataFrame(cost_series).sort_values("timestamp")
-            # Calculate cumulative sum
-            df_costs["cumulative_cost"] = df_costs["cost"].cumsum()
-            render_cost_chart(df_costs)
+        if rolling_avgs:
+            df_ra = pd.DataFrame(rolling_avgs)
+            fig_ra = px.line(
+                df_ra,
+                x="timestamp",
+                y=["latency", "rolling_avg"],
+                title="Latency & Rolling Averages (Window: 5)",
+                labels={"timestamp": "Timeline", "value": "Latency (s)"},
+                color_discrete_map={
+                    "latency": "rgba(79, 70, 229, 0.4)",
+                    "rolling_avg": "#3B82F6",
+                },
+            )
+            fig_ra.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font={"color": "#ECECF1"},
+            )
+            st.plotly_chart(fig_ra, use_container_width=True)
         else:
-            st.info("No cost tracking metrics logged yet.")
+            st.info("No rolling latency averages statistics compiled yet.")
 
+    st.markdown("---")
 
-class Analytics:
-    pass
+    # 3. Anomalies Outlier Detection
+    st.markdown("### Anomaly & Outlier Diagnostics Audit")
+    if anomalies:
+        st.warning(
+            f"⚠️ OUTLIERS DETECTED: {len(anomalies)} transaction traces exceeded mean duration limit by more than 2x standard deviation."
+        )
+        df_an = pd.DataFrame(anomalies)
+        display_df = df_an[["trace_id", "name", "latency", "mean", "timestamp"]].copy()
+        display_df.columns = [
+            "Trace ID",
+            "Pipeline Name",
+            "Observed Latency (s)",
+            "System Mean Baseline (s)",
+            "Ingestion Date",
+        ]
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+    else:
+        st.success("All transaction traces conform to system baseline averages.")

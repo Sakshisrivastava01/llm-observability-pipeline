@@ -137,3 +137,19 @@ erDiagram
         datetime timestamp
     }
 ```
+
+---
+
+## 🛡️ Resiliency & Logging Architecture
+
+### Request Correlation Tracing
+The `CorrelationMiddleware` intercepts every incoming HTTP request to attach `X-Request-ID` and `X-Correlation-ID` headers. These are bound using thread-local context variables to automatically inject the correct correlation metadata into structured `structlog` JSON logs.
+
+### Rate Limiting & Denial of Service Prevention
+The `RateLimiterMiddleware` prevents API endpoint exhaustion using a sliding window dictionary of client IP addresses. If requests cross the configured limit (120 req/min), it returns a fast `429 Too Many Requests` response bypass.
+
+### Circuit Breaker Registry
+The generic `CircuitBreaker` wraps LLM provider clients (OpenAI and Ollama). If external APIs encounter repeated timeouts or server errors:
+1. The circuit transitions from `CLOSED` to `OPEN` after **3 consecutive failures**.
+2. Subsequent calls are blocked instantly at the wrapper level for **60 seconds** to avoid cascading socket bottlenecks.
+3. Once the timeout passes, the circuit transitions to `HALF-OPEN` to allow a test request, returning to `CLOSED` upon success or back to `OPEN` on failure.

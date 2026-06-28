@@ -3,6 +3,8 @@ from typing import AsyncGenerator
 
 import httpx
 from app.api.v1.endpoints import router as api_router
+from app.core.middleware import CorrelationMiddleware
+from app.core.rate_limiter import RateLimiterMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -28,6 +30,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CorrelationMiddleware)
+app.add_middleware(RateLimiterMiddleware, max_requests=120)
 
 app.include_router(api_router, prefix="/api/v1")
 

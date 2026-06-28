@@ -33,3 +33,20 @@ class AlertRepository(BaseRepository):
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    async def acknowledge(self, alert_id: str) -> Alert | None:
+        """Acknowledges an alert by updating status to 'acknowledged'."""
+        import uuid
+
+        try:
+            alert_uuid = uuid.UUID(alert_id)
+            stmt = select(Alert).where(Alert.id == alert_uuid)
+            result = await self.db.execute(stmt)
+            alert = result.scalars().first()
+            if alert:
+                alert.status = "acknowledged"
+                await self.db.flush()
+            return alert
+        except Exception:
+            await self.db.rollback()
+            raise

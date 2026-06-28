@@ -1,10 +1,10 @@
 from typing import Any
 
+import httpx
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 from components.navbar import render_navbar
-from components.trace_table import render_trace_table
 from services.api import APIService
 
 
@@ -46,48 +46,154 @@ def render_gantt_chart(spans: list[dict[str, Any]]) -> None:
 
 
 def render() -> None:
-    """Renders the Trace Explorer page with root inputs, outputs, nested spans, and Gantt charts."""
+    """Renders the Trace Explorer page with root inputs, outputs, filters, search, and Gantt waterfall charts."""
     render_navbar("Trace Explorer Timeline")
     api = APIService()
+
+    # 1. Export Buttons Block
+    st.markdown("### Export Ingested Telemetry Logs")
+    col_exp1, col_exp2 = st.columns(2)
+    with col_exp1:
+        try:
+            csv_data = httpx.get(
+                f"{api.base_url}/traces/export?format=csv", timeout=5.0
+            ).text
+            st.download_button(
+                label="📥 Export Traces to CSV",
+                data=csv_data,
+                file_name="traces_report.csv",
+                mime="text/csv",
+                key="exp_trace_csv",
+            )
+        except Exception:
+            st.error("Ingest node offline. Unable to download CSV.")
+    with col_exp2:
+        try:
+            json_data = httpx.get(
+                f"{api.base_url}/traces/export?format=json", timeout=5.0
+            ).text
+            st.download_button(
+                label="📥 Export Traces to JSON",
+                data=json_data,
+                file_name="traces_report.json",
+                mime="application/json",
+                key="exp_trace_json",
+            )
+        except Exception:
+            st.error("Ingest node offline. Unable to download JSON.")
+
+    st.markdown("---")
+
+    # 2. Search & Filters Block
+    st.markdown("### Search & Filters")
+    col_s, col_f = st.columns(2)
+    with col_s:
+        search_query = st.text_input(
+            "Search by Trace ID or Pipeline name:", value="", key="trace_search_input"
+        )
+    with col_f:
+        model_shares = api.get_model_shares()
+        model_options = ["ALL"] + list(model_shares.keys())
+        selected_model = st.selectbox(
+            "Filter by Model:", model_options, key="trace_model_filter"
+        )
+
+    # 3. Pagination Controls
+    st.markdown("---")
+    limit = st.number_input(
+        "Page size limit:",
+        min_value=5,
+        max_value=250,
+        value=20,
+        step=5,
+        key="trace_page_limit",
+    )
+    offset = st.number_input(
+        "Offset page count:", min_value=0, value=0, step=1, key="trace_page_offset"
+    )
+
+    # Load traces from API
     traces = api.get_traces()
 
-    selected_id = render_trace_table(traces)
+    # Filter traces locally in Python for absolute portability
+    filtered_traces = []
+    for t in traces:
+        # Search query check
+        if search_query.strip():
+            sq = search_query.lower()
+            if (
+                sq not in t.get("trace_id", "").lower()
+                and sq not in t.get("name", "").lower()
+            ):
+                continue
+
+        # Model name filter check (check nested spans)
+        if selected_model != "ALL":
+            # Fetch detailed spans to check if this trace ran on the selected model
+            detail = api.get_trace(t["trace_id"])
+            has_model = any(
+                selected_model == s.get("model_name") for s in detail.get("spans", [])
+            )
+            if not has_model:
+                continue
+
+        filtered_traces.append(t)
+
+    # Slice list by pagination limits
+    paginated_traces = filtered_traces[offset : offset + limit]
+
+    st.markdown(
+        f"Showing **{len(paginated_traces)}** traces out of **{len(filtered_traces)}** matching filter conditions."
+    )
+
+    if not paginated_traces:
+        st.info("No traces matched the current filter conditions.")
+        return
+
+    # Render custom table
+    df_grid = pd.DataFrame(paginated_traces)
+    display_df = df_grid[
+        ["trace_id", "name", "start_time", "end_time", "spans_count"]
+    ].copy()
+    display_df.columns = [
+        "Trace ID",
+        "Pipeline Name",
+        "Start Time",
+        "End Time",
+        "Child Spans",
+    ]
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+    trace_ids = [t["trace_id"] for t in paginated_traces]
+    selected_id = st.selectbox(
+        "Select a transaction Trace ID to inspect hierarchy & timelines:",
+        trace_ids,
+        key="trace_select_dropdown",
+    )
 
     if selected_id:
         st.markdown("---")
         st.markdown(f"### Inspecting Trace: `{selected_id}`")
         trace = api.get_trace(selected_id)
 
-        # Overview Metadata Columns
         meta_col1, meta_col2, meta_col3 = st.columns(3)
         with meta_col1:
-            st.markdown(
-                f"**Pipeline**: `{trace.get('name', 'N/A')}`",
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"**Pipeline**: `{trace.get('name', 'N/A')}`")
         with meta_col2:
-            st.markdown(
-                f"**Timestamp**: `{trace.get('start_time', 'N/A')}`",
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"**Timestamp**: `{trace.get('start_time', 'N/A')}`")
         with meta_col3:
-            st.markdown(
-                f"**Child Spans**: `{len(trace.get('spans', []))}`",
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"**Child Spans**: `{len(trace.get('spans', []))}`")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Details Tabs
-        tab1, tab2, tab3 = st.tabs(
+        tab_timeline, tab_payload, tab_evals = st.tabs(
             ["Execution Timeline", "Payload Parameters", "Validation Evaluations"]
         )
 
-        with tab1:
+        with tab_timeline:
             spans = trace.get("spans", [])
             render_gantt_chart(spans)
 
-            # Details list
             st.markdown("#### Spans Structure Details")
             for span in spans:
                 with st.expander(
@@ -95,7 +201,7 @@ def render() -> None:
                 ):
                     st.json(span)
 
-        with tab2:
+        with tab_payload:
             col_in, col_out = st.columns(2)
             with col_in:
                 st.markdown("#### Root Ingest Inputs")
@@ -104,7 +210,7 @@ def render() -> None:
                 st.markdown("#### Termination Outputs")
                 st.json(trace.get("output_data", {}))
 
-        with tab3:
+        with tab_evals:
             st.markdown("#### Evaluation Metric Scores")
             evaluations = trace.get("evaluations", [])
             if evaluations:
@@ -116,7 +222,3 @@ def render() -> None:
                     )
             else:
                 st.info("No automatic evaluations logged for this trace.")
-
-
-class Traces:
-    pass

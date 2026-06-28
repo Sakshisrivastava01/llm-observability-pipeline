@@ -29,3 +29,35 @@ class PricingRepository(BaseRepository):
         stmt = select(ModelPricing).order_by(ModelPricing.model_name.asc())
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
+
+    async def upsert_pricing(
+        self,
+        provider: str,
+        model_name: str,
+        input_price: float,
+        output_price: float,
+    ) -> ModelPricing:
+        """Creates or updates a model pricing profile configuration."""
+        try:
+            stmt = select(ModelPricing).where(ModelPricing.model_name == model_name)
+            result = await self.db.execute(stmt)
+            pricing = result.scalars().first()
+            if pricing:
+                pricing.provider = provider
+                pricing.input_token_price_per_1k = input_price
+                pricing.output_token_price_per_1k = output_price
+                pricing.active = True
+            else:
+                pricing = ModelPricing(
+                    provider=provider,
+                    model_name=model_name,
+                    input_token_price_per_1k=input_price,
+                    output_token_price_per_1k=output_price,
+                    active=True,
+                )
+                self.db.add(pricing)
+            await self.db.flush()
+            return pricing
+        except Exception:
+            await self.db.rollback()
+            raise

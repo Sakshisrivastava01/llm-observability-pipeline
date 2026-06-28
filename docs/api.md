@@ -153,7 +153,48 @@ Manually triggers an evaluation scorer.
 
 ---
 
-## 6. Alerts Auditor
-
 ### `GET /api/v1/alerts`
 Retrieves paginated triggered operational alerts.
+
+### `POST /api/v1/alerts/{alert_id}/acknowledge`
+Acknowledges a triggered threshold alert, updating its status state.
+
+---
+
+## 7. Model Token Pricing Configurator
+
+### `POST /api/v1/pricing`
+Upserts token pricing rates for a given provider/model profile.
+
+### `GET /api/v1/pricing`
+Retrieves all registered token pricing rates profiles.
+
+---
+
+## 8. Advanced Analytics & Predictions
+
+### `GET /api/v1/analytics/advanced`
+Retrieves P50, P90, P95, and P99 latency percentiles, dynamic anomaly logs, and linear trend predictive forecasts.
+
+### `GET /api/v1/analytics/summaries`
+Retrieves daily/weekly/monthly throughput volumes and rolling latency average arrays.
+
+### `GET /api/v1/analytics/providers`
+Retrieves provider speed, cost, and failure rates rank comparisons.
+
+---
+
+## 9. Data Exporters
+
+### `GET /api/v1/traces/export?format=csv`
+Exports trace telemetry records in CSV or JSON formats.
+
+### `GET /api/v1/evaluations/export?format=csv`
+Exports evaluations records in CSV or JSON formats.
+
+---
+
+## 10. Deep Diagnostics
+
+### `GET /api/v1/health/diagnostics`
+Retrieves connectivity statuses for backend postgres, Ollama nodes, and OpenAI servers.

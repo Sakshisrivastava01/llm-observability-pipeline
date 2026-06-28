@@ -76,10 +76,18 @@ uvicorn backend.app.main:app --reload --port 8000
 
 ---
 
-## 📈 Running the Observability Dashboard
-
 Ensure your virtual environment is active, then execute Streamlit:
 ```bash
 streamlit run dashboard/app.py
 ```
 The glassmorphism dashboard will launch and open in your default browser at: `http://localhost:8501`.
+
+---
+
+## 🛡️ Enterprise Middleware & Resiliency
+
+### Rate Limiter
+By default, the platform implements a sliding window rate limiter allowing up to **120 requests/minute** per client IP. Rate-limited requests return a `429 Too Many Requests` status code.
+
+### Circuit Breaker
+Completions proxies (OpenAI & Ollama) are wrapped with a circuit breaker. If **3 consecutive failures** are recorded, the breaker trips to `OPEN`, blocking further calls for **60 seconds** to allow recovery.

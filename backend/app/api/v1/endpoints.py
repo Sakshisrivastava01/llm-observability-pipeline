@@ -8,7 +8,7 @@ from app.sdk.context import SpanContext, TraceContext
 from app.services.analytics_service import AnalyticsService
 from app.services.evaluation_service import EvaluationService
 from app.services.telemetry_service import TelemetryService
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +23,13 @@ class InferenceRequest(BaseModel):
     temperature: float = 0.7
     reference_context: str | None = None
     reference_output: str | None = None
+
+
+class PricingUpsertRequest(BaseModel):
+    provider: str
+    model_name: str
+    input_token_price_per_1k: float
+    output_token_price_per_1k: float
 
 
 class TracePayload(BaseModel):
@@ -359,3 +366,237 @@ async def get_alerts(
         }
         for a in alerts
     ]
+
+
+@router.post("/alerts/{alert_id}/acknowledge")
+async def acknowledge_alert(
+    alert_id: str, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Acknowledges a triggered threshold alert."""
+    from app.repositories.alert_repository import AlertRepository
+
+    repo = AlertRepository(db)
+    alert = await repo.acknowledge(alert_id)
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"status": "success", "alert_id": str(alert.id)}
+
+
+@router.post("/pricing")
+async def upsert_pricing(
+    req: PricingUpsertRequest, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Registers or updates token price rates for a model profile."""
+    repo = PricingRepository(db)
+    item = await repo.upsert_pricing(
+        provider=req.provider,
+        model_name=req.model_name,
+        input_price=req.input_token_price_per_1k,
+        output_price=req.output_token_price_per_1k,
+    )
+    return {
+        "status": "success",
+        "model_name": item.model_name,
+        "input_price": float(item.input_token_price_per_1k),
+        "output_price": float(item.output_token_price_per_1k),
+    }
+
+
+@router.get("/pricing")
+async def get_pricing(db: AsyncSession = Depends(get_db)) -> list[Any]:
+    """Retrieves all registered token pricing configurations."""
+    repo = PricingRepository(db)
+    items = await repo.get_all()
+    return [
+        {
+            "id": item.id,
+            "provider": item.provider,
+            "model_name": item.model_name,
+            "input_token_price_per_1k": float(item.input_token_price_per_1k),
+            "output_token_price_per_1k": float(item.output_token_price_per_1k),
+            "active": item.active,
+        }
+        for item in items
+    ]
+
+
+@router.get("/analytics/advanced")
+async def get_advanced_analytics(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Retrieves advanced percentiles, predictions, anomalies, and provider metrics."""
+    from app.services.advanced_analytics_service import AdvancedAnalyticsService
+
+    service = AdvancedAnalyticsService(db)
+    percentiles = await service.get_percentiles()
+    anomalies = await service.detect_anomalies()
+    predictions = await service.predict_metrics()
+    return {
+        "percentiles": percentiles,
+        "anomalies": anomalies,
+        "predictions": predictions,
+    }
+
+
+@router.get("/analytics/summaries")
+async def get_analytics_summaries(
+    interval: str = "daily", db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
+    """Retrieves aggregated daily/weekly/monthly throughput summaries."""
+    from app.services.advanced_analytics_service import AdvancedAnalyticsService
+
+    service = AdvancedAnalyticsService(db)
+    trends = await service.get_throughput_trends(interval)
+    rolling = await service.get_rolling_averages()
+    return {
+        "throughput_trends": trends,
+        "rolling_averages": rolling,
+    }
+
+
+@router.get("/analytics/providers")
+async def get_providers_comparison(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Compares and ranks OpenAI vs Ollama metrics."""
+    from app.services.advanced_analytics_service import AdvancedAnalyticsService
+
+    service = AdvancedAnalyticsService(db)
+    return await service.get_provider_comparison()
+
+
+@router.get("/traces/export")
+async def export_traces(format: str = "csv", db: AsyncSession = Depends(get_db)) -> Any:
+    """Exports ingested traces as CSV or JSON format downloads."""
+    trace_repo = TraceRepository(db)
+    traces = await trace_repo.get_all(limit=1000)
+    if format.lower() == "json":
+        data = [
+            {
+                "trace_id": t.trace_id,
+                "name": t.name,
+                "start_time": t.start_time.isoformat(),
+                "end_time": t.end_time.isoformat(),
+                "input_data": t.input_data,
+                "output_data": t.output_data,
+            }
+            for t in traces
+        ]
+        return data
+    else:
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Trace ID", "Pipeline Name", "Start Time", "End Time"])
+        for t in traces:
+            writer.writerow(
+                [
+                    t.trace_id,
+                    t.name,
+                    t.start_time.isoformat(),
+                    t.end_time.isoformat(),
+                ]
+            )
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=traces.csv"},
+        )
+
+
+@router.get("/evaluations/export")
+async def export_evaluations(
+    format: str = "csv", db: AsyncSession = Depends(get_db)
+) -> Any:
+    """Exports evaluations as CSV or JSON format downloads."""
+    from app.services.evaluation_service import EvaluationService
+
+    service = EvaluationService(db)
+    records = await service.eval_repo.get_all(limit=1000)
+    if format.lower() == "json":
+        data = [
+            {
+                "id": str(r.id),
+                "trace_id": r.trace_id,
+                "metric_name": r.metric_name,
+                "metric_value": r.metric_value,
+                "status": r.status,
+                "feedback": r.feedback,
+            }
+            for r in records
+        ]
+        return data
+    else:
+        import csv
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(
+            [
+                "Evaluation ID",
+                "Trace ID",
+                "Metric Category",
+                "Score",
+                "Status",
+                "Feedback",
+            ]
+        )
+        for r in records:
+            writer.writerow(
+                [
+                    str(r.id),
+                    r.trace_id,
+                    r.metric_name,
+                    r.metric_value,
+                    r.status,
+                    r.feedback,
+                ]
+            )
+        return Response(
+            content=output.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=evals.csv"},
+        )
+
+
+@router.get("/health/diagnostics")
+async def health_diagnostics(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Retrieves connection health details of the database, OpenAI, and Ollama."""
+    import httpx
+    from app.core.config import settings
+    from sqlalchemy import text
+
+    # 1. Database check
+    try:
+        await db.execute(text("SELECT 1"))
+        db_status = "healthy"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
+    # 2. OpenAI connectivity check
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(settings.OPENAI_API_BASE, timeout=2.0)
+            openai_status = "reachable" if resp.status_code < 500 else "error"
+    except Exception:
+        openai_status = "unreachable"
+
+    # 3. Ollama check
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(settings.OLLAMA_API_BASE, timeout=2.0)
+            ollama_status = "reachable" if resp.status_code == 200 else "offline"
+    except Exception:
+        ollama_status = "offline"
+
+    return {
+        "database": db_status,
+        "openai": openai_status,
+        "ollama": ollama_status,
+        "environment": settings.ENVIRONMENT,
+    }

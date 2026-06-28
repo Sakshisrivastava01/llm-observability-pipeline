@@ -28,8 +28,10 @@ Our premium dark-themed Streamlit dashboard provides deep, context-aware operati
 | **Telemetry SDK** | Async wrappers | Thread-safe, ContextVar-driven context managers |
 | **Cost Calculator** | Standard static rates | Pre-token dynamic cost calculator linking price tables |
 | **Evaluation Engine** | API assertions | Decoupled dynamic Scorer Factory with 5 quality metric scorers |
-| **Operational Alerts** | Simple metrics thresholds | Advanced rule alerts checking latency regressions |
+| **Operational Alerts** | Simple metrics thresholds | Advanced rule alerts with active acknowledgements |
 | **Local Playground** | Staging endpoints | Connection diagnostics and interactive inference query tester |
+| **Resiliency & Limits** | Basic key limits | Token bucket Rate Limiting & automatic Circuit Breakers |
+| **Data Portability** | Simple tables exports | Full CSV / JSON reports download exporters |
 
 ---
 
