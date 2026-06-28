@@ -16,20 +16,20 @@ class AdvancedAnalyticsService:
 
     async def get_percentiles(self) -> dict[str, float]:
         """Calculates P50, P90, P95, and P99 latency percentiles of ingested transactions."""
-        stmt = select(Trace)
+        stmt = select(Trace.start_time, Trace.end_time)
         result = await self.db.execute(stmt)
-        traces = result.scalars().all()
-        if not traces:
+        rows = result.all()
+        if not rows:
             return {"P50": 0.0, "P90": 0.0, "P95": 0.0, "P99": 0.0}
 
-        latencies = sorted(
-            [(t.end_time - t.start_time).total_seconds() for t in traces]
+        latencies: list[float] = sorted(
+            [float((row[1] - row[0]).total_seconds()) for row in rows]
         )
         n = len(latencies)
 
         def _pct(p: float) -> float:
             idx = max(0, min(n - 1, int(n * p)))
-            return latencies[idx]
+            return float(latencies[idx])
 
         return {
             "P50": _pct(0.50),
@@ -42,15 +42,14 @@ class AdvancedAnalyticsService:
         self, interval: str = "daily"
     ) -> list[dict[str, Any]]:
         """Calculates daily, weekly, or monthly query volumes."""
-        stmt = select(Trace).order_by(Trace.start_time.asc())
+        stmt = select(Trace.start_time).order_by(Trace.start_time.asc())
         result = await self.db.execute(stmt)
-        traces = result.scalars().all()
-        if not traces:
+        rows = result.scalars().all()
+        if not rows:
             return []
 
         counts: dict[str, int] = {}
-        for t in traces:
-            dt = t.start_time
+        for dt in rows:
             if interval == "hourly":
                 key = dt.strftime("%Y-%m-%d %H:00")
             elif interval == "weekly":
@@ -66,23 +65,25 @@ class AdvancedAnalyticsService:
 
     async def get_rolling_averages(self, window: int = 5) -> list[dict[str, Any]]:
         """Calculates a moving average sequence of request durations."""
-        stmt = select(Trace).order_by(Trace.start_time.asc())
+        stmt = select(Trace.trace_id, Trace.start_time, Trace.end_time).order_by(
+            Trace.start_time.asc()
+        )
         result = await self.db.execute(stmt)
-        traces = result.scalars().all()
-        if not traces:
+        rows = result.all()
+        if not rows:
             return []
 
         data = []
         latencies = []
-        for t in traces:
-            lat = (t.end_time - t.start_time).total_seconds()
+        for row in rows:
+            lat = (row[2] - row[1]).total_seconds()
             latencies.append(lat)
             curr_window = latencies[-window:]
             avg_lat = sum(curr_window) / len(curr_window)
             data.append(
                 {
-                    "trace_id": t.trace_id,
-                    "timestamp": t.start_time.isoformat(),
+                    "trace_id": row[0],
+                    "timestamp": row[1].isoformat(),
                     "latency": lat,
                     "rolling_avg": avg_lat,
                 }
@@ -91,51 +92,51 @@ class AdvancedAnalyticsService:
 
     async def detect_anomalies(self) -> list[dict[str, Any]]:
         """Flags transaction outliers exceeding a 2x standard deviation threshold boundary."""
-        stmt = select(Trace)
+        stmt = select(Trace.trace_id, Trace.name, Trace.start_time, Trace.end_time)
         result = await self.db.execute(stmt)
-        traces = result.scalars().all()
-        if not traces or len(traces) < 5:
+        rows = result.all()
+        if not rows or len(rows) < 5:
             return []
 
-        latencies = [(t.end_time - t.start_time).total_seconds() for t in traces]
+        latencies = [(row[3] - row[2]).total_seconds() for row in rows]
         mean = sum(latencies) / len(latencies)
         variance = sum((x - mean) ** 2 for x in latencies) / len(latencies)
         std_dev = math.sqrt(variance)
 
         anomalies = []
-        for t in traces:
-            lat = (t.end_time - t.start_time).total_seconds()
+        for row in rows:
+            lat = (row[3] - row[2]).total_seconds()
             if std_dev > 0 and lat > (mean + 2.0 * std_dev):
                 anomalies.append(
                     {
-                        "trace_id": t.trace_id,
-                        "name": t.name,
+                        "trace_id": row[0],
+                        "name": row[1],
                         "latency": lat,
                         "mean": mean,
                         "std_dev": std_dev,
-                        "timestamp": t.start_time.isoformat(),
+                        "timestamp": row[2].isoformat(),
                     }
                 )
         return anomalies
 
     async def predict_metrics(self) -> dict[str, float]:
         """Predicts tomorrow's latency, token budget, and success rates via regression trends."""
-        stmt = select(Trace).order_by(Trace.start_time.asc())
+        stmt = select(Trace.start_time, Trace.end_time).order_by(Trace.start_time.asc())
         result = await self.db.execute(stmt)
-        traces = result.scalars().all()
-        if not traces:
+        trace_rows = result.all()
+        if not trace_rows:
             return {
                 "predicted_latency": 0.0,
                 "predicted_cost": 0.0,
                 "predicted_success_rate": 100.0,
             }
 
-        span_stmt = select(Span)
+        span_stmt = select(Span.cost, Span.error)
         span_result = await self.db.execute(span_stmt)
-        spans = span_result.scalars().all()
+        span_rows = span_result.all()
 
-        latencies = [(t.end_time - t.start_time).total_seconds() for t in traces]
-        n = len(traces)
+        latencies = [(row[1] - row[0]).total_seconds() for row in trace_rows]
+        n = len(trace_rows)
 
         if n >= 2:
             x = list(range(n))
@@ -150,8 +151,8 @@ class AdvancedAnalyticsService:
         else:
             next_latency = latencies[0] if latencies else 0.0
 
-        avg_cost = sum(s.cost for s in spans) / n if n else 0.0
-        errors = sum(1 for s in spans if s.error is not None)
+        avg_cost = sum(float(row[0]) for row in span_rows) / n if n else 0.0
+        errors = sum(1 for row in span_rows if row[1] is not None)
         success_rate = ((n - errors) / n) * 100.0 if n else 100.0
 
         return {
@@ -162,13 +163,20 @@ class AdvancedAnalyticsService:
 
     async def get_provider_comparison(self) -> dict[str, Any]:
         """Provides rank models comparing costs, speed, and reliability across OpenAI and Ollama."""
-        stmt = select(Span).where(Span.span_type == "llm")
+        stmt = select(
+            Span.model_name,
+            Span.start_time,
+            Span.end_time,
+            Span.cost,
+            Span.total_tokens,
+            Span.error,
+        ).where(Span.span_type == "llm")
         result = await self.db.execute(stmt)
-        spans = result.scalars().all()
+        rows = result.all()
 
         providers: dict[str, dict[str, Any]] = {}
-        for s in spans:
-            model = s.model_name or "unknown"
+        for row in rows:
+            model = row[0] or "unknown"
             prov = "openai" if ("gpt" in model or "text-" in model) else "ollama"
 
             p_data = providers.setdefault(
@@ -182,10 +190,10 @@ class AdvancedAnalyticsService:
                 },
             )
 
-            p_data["avg_latency"].append((s.end_time - s.start_time).total_seconds())
-            p_data["total_cost"] += float(s.cost)
-            p_data["total_tokens"] += s.total_tokens
-            if s.error:
+            p_data["avg_latency"].append((row[2] - row[1]).total_seconds())
+            p_data["total_cost"] += float(row[3])
+            p_data["total_tokens"] += row[4]
+            if row[5]:
                 p_data["failures"] += 1
             p_data["total"] += 1
 

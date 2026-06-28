@@ -52,13 +52,156 @@ class EvaluationRequest(BaseModel):
     span_id: str | None = None
 
 
-@router.get("/health")
+class HealthCheckResponse(BaseModel):
+    status: str
+
+
+class IngestResponse(BaseModel):
+    status: str
+    trace_id: str
+
+
+class SpanResponse(BaseModel):
+    span_id: str
+    parent_span_id: str | None
+    name: str
+    span_type: str
+    start_time: str
+    end_time: str
+    input_data: dict[str, Any]
+    output_data: dict[str, Any]
+    model_name: str | None
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    cost: float
+    error: str | None
+    custom_metadata: dict[str, Any]
+
+
+class EvaluationScoreResponse(BaseModel):
+    id: str
+    metric_name: str
+    metric_value: float
+    status: str
+    feedback: str | None = None
+    timestamp: str | None = None
+
+
+class TraceDetailResponse(BaseModel):
+    trace_id: str
+    name: str
+    start_time: str
+    end_time: str
+    input_data: dict[str, Any]
+    output_data: dict[str, Any]
+    custom_metadata: dict[str, Any]
+    spans: list[SpanResponse]
+    evaluations: list[EvaluationScoreResponse]
+
+
+class TraceSummaryResponse(BaseModel):
+    trace_id: str
+    name: str
+    start_time: str
+    end_time: str
+    input_data: dict[str, Any]
+    output_data: dict[str, Any]
+    custom_metadata: dict[str, Any]
+    spans_count: int
+
+
+class EvaluationRunResponse(BaseModel):
+    status: str
+    evaluation_id: str
+    metric_name: str
+    metric_value: float
+
+
+class EvaluationSummaryResponse(BaseModel):
+    id: str
+    trace_id: str
+    span_id: str | None
+    metric_name: str
+    metric_value: float
+    status: str
+    feedback: str | None
+    timestamp: str
+
+
+class AlertResponse(BaseModel):
+    id: str
+    metric_name: str
+    threshold_value: float
+    actual_value: float
+    severity: str
+    status: str
+    description: str
+    timestamp: str
+
+
+class AcknowledgeResponse(BaseModel):
+    status: str
+    alert_id: str
+
+
+class PricingUpsertResponse(BaseModel):
+    status: str
+    model_name: str
+    input_price: float
+    output_price: float
+
+
+class PricingResponse(BaseModel):
+    id: int | None = None
+    provider: str
+    model_name: str
+    input_token_price_per_1k: float
+    output_token_price_per_1k: float
+    active: bool
+
+
+class AdvancedAnalyticsResponse(BaseModel):
+    percentiles: dict[str, float]
+    anomalies: list[dict[str, Any]]
+    predictions: dict[str, float]
+
+
+class AnalyticsSummariesResponse(BaseModel):
+    throughput_trends: list[dict[str, Any]]
+    rolling_averages: list[dict[str, Any]]
+
+
+class InferenceResponse(BaseModel):
+    trace_id: str
+    response: str
+    tokens: dict[str, int]
+    cost: float
+    evaluations: list[dict[str, Any]]
+
+
+class ProviderStatsResponse(BaseModel):
+    avg_latency: float
+    avg_cost: float
+    avg_tokens: float
+    failure_rate: float
+    requests: int
+
+
+class DiagnosticHealthResponse(BaseModel):
+    database: str
+    openai: str
+    ollama: str
+    environment: str
+
+
+@router.get("/health", response_model=HealthCheckResponse)
 async def health_check() -> dict[str, str]:
     """Retrieves operational status of the platform API."""
     return {"status": "healthy"}
 
 
-@router.post("/traces", status_code=201)
+@router.post("/traces", status_code=201, response_model=IngestResponse)
 async def ingest_trace(
     payload: TracePayload, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -71,7 +214,7 @@ async def ingest_trace(
         raise HTTPException(status_code=400, detail=f"Ingest failed: {str(e)}")
 
 
-@router.get("/traces")
+@router.get("/traces", response_model=list[TraceSummaryResponse])
 async def get_traces(
     limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)
 ) -> list[Any]:
@@ -93,7 +236,7 @@ async def get_traces(
     ]
 
 
-@router.get("/traces/{trace_id}")
+@router.get("/traces/{trace_id}", response_model=TraceDetailResponse)
 async def get_trace(
     trace_id: str, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -145,7 +288,7 @@ async def get_trace(
     }
 
 
-@router.post("/evaluations/run", status_code=201)
+@router.post("/evaluations/run", status_code=201, response_model=EvaluationRunResponse)
 async def run_evaluation(
     req: EvaluationRequest, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -170,7 +313,7 @@ async def run_evaluation(
         raise HTTPException(status_code=400, detail=f"Evaluation failed: {str(e)}")
 
 
-@router.get("/evaluations")
+@router.get("/evaluations", response_model=list[EvaluationSummaryResponse])
 async def get_evaluations(
     limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)
 ) -> list[Any]:
@@ -219,7 +362,7 @@ async def get_regressions(
     return await analytics_service.detect_regressions()
 
 
-@router.post("/inference")
+@router.post("/inference", response_model=InferenceResponse)
 async def execute_inference(
     req: InferenceRequest, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -344,7 +487,7 @@ async def execute_inference(
     }
 
 
-@router.get("/alerts")
+@router.get("/alerts", response_model=list[AlertResponse])
 async def get_alerts(
     limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)
 ) -> list[Any]:
@@ -368,7 +511,7 @@ async def get_alerts(
     ]
 
 
-@router.post("/alerts/{alert_id}/acknowledge")
+@router.post("/alerts/{alert_id}/acknowledge", response_model=AcknowledgeResponse)
 async def acknowledge_alert(
     alert_id: str, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -382,7 +525,7 @@ async def acknowledge_alert(
     return {"status": "success", "alert_id": str(alert.id)}
 
 
-@router.post("/pricing")
+@router.post("/pricing", response_model=PricingUpsertResponse)
 async def upsert_pricing(
     req: PricingUpsertRequest, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -402,7 +545,7 @@ async def upsert_pricing(
     }
 
 
-@router.get("/pricing")
+@router.get("/pricing", response_model=list[PricingResponse])
 async def get_pricing(db: AsyncSession = Depends(get_db)) -> list[Any]:
     """Retrieves all registered token pricing configurations."""
     repo = PricingRepository(db)
@@ -420,7 +563,7 @@ async def get_pricing(db: AsyncSession = Depends(get_db)) -> list[Any]:
     ]
 
 
-@router.get("/analytics/advanced")
+@router.get("/analytics/advanced", response_model=AdvancedAnalyticsResponse)
 async def get_advanced_analytics(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
@@ -438,7 +581,7 @@ async def get_advanced_analytics(
     }
 
 
-@router.get("/analytics/summaries")
+@router.get("/analytics/summaries", response_model=AnalyticsSummariesResponse)
 async def get_analytics_summaries(
     interval: str = "daily", db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
@@ -454,7 +597,7 @@ async def get_analytics_summaries(
     }
 
 
-@router.get("/analytics/providers")
+@router.get("/analytics/providers", response_model=dict[str, ProviderStatsResponse])
 async def get_providers_comparison(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
@@ -562,7 +705,7 @@ async def export_evaluations(
         )
 
 
-@router.get("/health/diagnostics")
+@router.get("/health/diagnostics", response_model=DiagnosticHealthResponse)
 async def health_diagnostics(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:

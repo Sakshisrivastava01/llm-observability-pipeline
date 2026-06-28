@@ -1,12 +1,25 @@
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from app.core.config import settings
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+engine_kwargs: dict[str, Any] = {
+    "pool_pre_ping": True,
+    "future": True,
+}
+if "postgresql" in settings.DATABASE_URL:
+    engine_kwargs.update(
+        {
+            "pool_size": 20,
+            "max_overflow": 10,
+            "pool_recycle": 1800,
+        }
+    )
+
 engine = create_async_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
-    future=True,
+    **engine_kwargs,
 )
 
 async_session_factory = async_sessionmaker(

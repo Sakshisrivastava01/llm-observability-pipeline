@@ -37,9 +37,23 @@ def render_sidebar() -> None:
 
         for page_name, icon in pages:
             # Check if this button represents the active page for style context
-            if st.button(f"{icon} {page_name}", key=f"nav_btn_{page_name}"):
-                st.session_state.current_page = page_name
-                st.rerun()
+            is_active = st.session_state.current_page == page_name
+            if is_active:
+                st.markdown(
+                    "<div style='border-left: 3px solid #818CF8; padding-left: 8px; margin-bottom: 2px;'>",
+                    unsafe_allow_html=True,
+                )
+                if st.button(
+                    f"{icon} {page_name}",
+                    key=f"nav_btn_{page_name}",
+                    help="Current Active Page",
+                ):
+                    pass
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                if st.button(f"{icon} {page_name}", key=f"nav_btn_{page_name}"):
+                    st.session_state.current_page = page_name
+                    st.rerun()
 
         st.markdown(
             "<hr style='border: 0; border-top: 1px solid rgba(79, 70, 229, 0.2); margin: 15px 0;'>",

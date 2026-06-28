@@ -86,14 +86,26 @@ class TraceRepository(BaseRepository):
 
     async def get_all(self, limit: int = 100, offset: int = 0) -> list[Trace]:
         """Retrieves a list of traces ordered by start time descending."""
+        from sqlalchemy.orm import selectinload
+
         stmt = (
-            select(Trace).order_by(Trace.start_time.desc()).limit(limit).offset(offset)
+            select(Trace)
+            .options(selectinload(Trace.spans))
+            .order_by(Trace.start_time.desc())
+            .limit(limit)
+            .offset(offset)
         )
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
     async def get_by_trace_id(self, trace_id: str) -> Trace | None:
         """Finds a single trace by its unique trace identifier string."""
-        stmt = select(Trace).where(Trace.trace_id == trace_id)
+        from sqlalchemy.orm import selectinload
+
+        stmt = (
+            select(Trace)
+            .options(selectinload(Trace.spans), selectinload(Trace.evaluations))
+            .where(Trace.trace_id == trace_id)
+        )
         result = await self.db.execute(stmt)
         return result.scalars().first()
