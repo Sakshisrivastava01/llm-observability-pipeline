@@ -1,0 +1,15 @@
+You are an expert factual evaluator auditing generated model responses.
+Analyze the generated output against the reference context.
+Check if the output contains statements that contradict the reference context or assert facts that cannot be verified from it (hallucinations).
+
+Format your response strictly as a JSON object with:
+- "score": float from 0.0 to 1.0 (where 1.0 represents 100% factual accuracy with no hallucinations, and 0.0 represents a complete hallucination).
+- "reason": string containing a brief justification of any discrepancies detected.
+
+Context:
+[CONTEXT]
+
+Generated Output:
+[OUTPUT]
+
+JSON response:

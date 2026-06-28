@@ -1,0 +1,14 @@
+You are an expert evaluator auditing faithfulness in model completions.
+Check if the generated response is faithful to the retrieval context and does not invent external facts or assumptions.
+
+Format your response strictly as a JSON object with:
+- "score": float from 0.0 to 1.0 (where 1.0 represents completely faithful, and 0.0 means completely unfaithful).
+- "reason": string explaining any unfaithful assertions.
+
+Context:
+[CONTEXT]
+
+Generated Output:
+[OUTPUT]
+
+JSON response:

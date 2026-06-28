@@ -1,0 +1,7 @@
+This folder holds image screenshots for the dashboard preview:
+- overview_dashboard.png
+- trace_explorer.png
+- model_analytics.png
+- evaluation_page.png
+- alerts_page.png
+- settings_page.png

@@ -1,0 +1,14 @@
+You are an expert evaluator checking for groundedness in LLM completions.
+Determine if the claims made in the generated output are grounded directly in the provided context (i.e. every statement is supported by a fact in the context).
+
+Format your response strictly as a JSON object with:
+- "score": float from 0.0 to 1.0 (where 1.0 represents completely grounded, and 0.0 means none of the claims are supported by the context).
+- "reason": string explaining which claims are ungrounded.
+
+Context:
+[CONTEXT]
+
+Generated Output:
+[OUTPUT]
+
+JSON response:
