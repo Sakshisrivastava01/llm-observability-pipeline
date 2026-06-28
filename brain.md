@@ -37,6 +37,31 @@
 
 ---
 
+## System Architecture & Folder Layout
+- `backend/`: FastAPI endpoints, Alembic migrations, database models, repositories, services, and seeder.
+- `dashboard/`: Streamlit dashboard with custom dark CSS, modular components, charts, and query tester page settings.
+- `tests/`: 4 integration test cases verifying SDK, repositories, scorers, and proxy routers.
+
+---
+
+## Technical Stack & Schemas
+- Python 3.11, FastAPI, SQLAlchemy 2.0 (async session generators), PostgreSQL 16 / SQLite, Alembic, Streamlit.
+- Databases: Trace, Span, Evaluation, ModelPricing, Alert. All Numeric models configure `asdecimal=False` on the type constructor level.
+- Datetime parsing uses UTC default timestamps with Python timezone-compatibility offsets.
+
+---
+
+## Completed Implementations
+- **Core backend foundation**: Declarative async session pooling and Alembic versions migrations.
+- **Provider Registry**: OpenAI and Ollama API connectors reusing a shared HTTP client lifespan pool.
+- **Telemetry SDK**: Asynchronous `TraceContext` and `SpanContext` contexts wrapping token usage and latency calculations.
+- **Evaluations Factory**: Registry mapping 5 modular scorers (hallucination, groundedness, faithfulness, Jaccard overlap similarity, and overall quality index).
+- **KPI Analytics & Warnings**: Computes throughput distributions and flags latency regressions.
+- **Diagnostics Alert Engine**: Automated checks flagging latency duration limits and cost thresholds.
+- **Operational Dashboard**: Glassmorphism overview KPI widgets, trace timeline Gantt charts, evaluation auditing tables, and settings testing playgrounds.
+
+---
+
 # AI Instructions
 
 Every coding session MUST start by reading this file.
