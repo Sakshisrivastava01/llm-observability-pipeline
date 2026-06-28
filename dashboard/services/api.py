@@ -6,8 +6,12 @@ import httpx
 class APIService:
     """HTTP client service querying FastAPI telemetry and analytics endpoints."""
 
-    def __init__(self, base_url: str = "http://localhost:8000/api/v1"):
-        self.base_url = base_url
+    def __init__(self, base_url: str | None = None):
+        import os
+
+        self.base_url = base_url or os.getenv(
+            "BACKEND_API_URL", "http://localhost:8000/api/v1"
+        )
 
     def get_health(self) -> dict[str, str]:
         """Queries health status."""

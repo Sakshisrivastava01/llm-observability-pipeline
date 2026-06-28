@@ -23,6 +23,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: observability_api
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/observability
       - ENVIRONMENT=production
@@ -31,6 +32,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: observability_dashboard
+    environment:
+      - BACKEND_API_URL=http://api:8000/api/v1
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:
