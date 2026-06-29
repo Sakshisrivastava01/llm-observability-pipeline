@@ -1,200 +1,277 @@
-# REST API Reference Documentation
+# API Reference
 
-This document describes the API schemas and JSON endpoints exposed by the platform ingest server.
+REST endpoints are exposed under `/api/v1`.
 
----
+## Authentication
 
-## Connection Specifications
-
-- **Default Local Ingestion Host**: `http://localhost:8000`
-- **Default Endpoint Path Prefix**: `/api/v1`
-- **Content Type**: `application/json`
-
----
-
-## 1. Health Diagnostics
-
-### `GET /health`
-Verifies connection parameters and returns the system health status.
-
-**Response (200 OK)**:
-```json
-{
-  "status": "healthy"
-}
-```
-
----
-
-## 2. Inferences Proxy Pipeline
-
-### `POST /api/v1/inference`
-Proxy LLM completions route. Runs provider wrapping, captures telemetry logs under dynamic contexts, triggers automated evaluations, and commits traces in a single step.
-
-**Request Payload**:
-```json
-{
-  "provider": "openai",
-  "model": "gpt-4o",
-  "prompt": "Explain quantum superposition in one sentence.",
-  "system_instruction": "Be concise.",
-  "temperature": 0.7,
-  "reference_context": "Superposition is when a system is in multiple states.",
-  "reference_output": "Quantum superposition is when a system exists in multiple states."
-}
-```
-
-**Response (200 OK)**:
-```json
-{
-  "trace_id": "tr-2ea5c9cc-f214-49ab-163e-0e41eb9c1aa6",
-  "response": "Quantum superposition allows a physical system to exist in multiple states simultaneously.",
-  "tokens": {
-    "prompt": 18,
-    "completion": 14,
-    "total": 32
-  },
-  "cost": 0.00031,
-  "evaluations": [
-    {
-      "metric_name": "hallucination",
-      "metric_value": 0.95,
-      "status": "success"
-    },
-    {
-      "metric_name": "quality",
-      "metric_value": 0.88,
-      "status": "success"
-    }
-  ]
-}
-```
-
----
-
-## 3. Telemetry Ingest
-
-### `POST /api/v1/traces`
-Allows external applications or SDKs to post trace packages with nested spans.
-
-**Request Payload**:
-```json
-{
-  "trace_id": "tr-custom-123",
-  "name": "chat_completion_pipeline",
-  "start_time": "2026-06-28T12:00:00Z",
-  "end_time": "2026-06-28T12:00:02Z",
-  "input_data": { "prompt": "Hello" },
-  "output_data": { "response": "Hi" },
-  "custom_metadata": { "env": "prod" },
-  "spans": [
-    {
-      "span_id": "sp-custom-123",
-      "name": "model_inference",
-      "span_type": "llm",
-      "start_time": "2026-06-28T12:00:00Z",
-      "end_time": "2026-06-28T12:00:02Z",
-      "model_name": "gpt-3.5-turbo",
-      "prompt_tokens": 10,
-      "completion_tokens": 5,
-      "total_tokens": 15,
-      "cost": 0.000025,
-      "error": null,
-      "custom_metadata": {}
-    }
-  ]
-}
-```
-
-**Response (201 Created)**:
-```json
-{
-  "status": "success",
-  "trace_id": "tr-custom-123"
-}
-```
-
----
-
-## 4. Query Endpoints
-
-### `GET /api/v1/traces`
-Retrieves a paginated list of ingested traces.
-
-- **Query Parameters**:
-  - `limit`: results limit (default 100).
-  - `offset`: page offset (default 0).
-
-**Response (200 OK)**:
-```json
-[
+### `POST /auth/login`
+Authenticates credentials.
+- **Request:**
+  ```json
   {
-    "trace_id": "tr-custom-123",
-    "name": "chat_completion_pipeline",
-    "start_time": "2026-06-28T12:00:00Z",
-    "end_time": "2026-06-28T12:00:02Z",
-    "input_data": { "prompt": "Hello" },
-    "output_data": { "response": "Hi" },
-    "custom_metadata": { "env": "prod" },
-    "spans_count": 1
+    "email": "admin@company.com",
+    "password": "password"
   }
-]
-```
+  ```
+- **Response (200 OK):**
+  ```json
+  {
+    "user": {
+      "name": "Admin",
+      "email": "admin@company.com"
+    },
+    "access_token": "mock-token-string"
+  }
+  ```
 
-### `GET /api/v1/traces/{trace_id}`
-Retrieves detailed traces, nested spans hierarchy list, and related evaluations.
+### `POST /auth/logout`
+Terminates active session.
+- **Response (200 OK):**
+  ```json
+  {
+    "status": "success"
+  }
+  ```
 
----
-
-## 5. Evaluation Manager
-
-### `POST /api/v1/evaluations/run`
-Manually triggers an evaluation scorer.
-
----
-
-### `GET /api/v1/alerts`
-Retrieves paginated triggered operational alerts.
-
-### `POST /api/v1/alerts/{alert_id}/acknowledge`
-Acknowledges a triggered threshold alert, updating its status state.
-
----
-
-## 7. Model Token Pricing Configurator
-
-### `POST /api/v1/pricing`
-Upserts token pricing rates for a given provider/model profile.
-
-### `GET /api/v1/pricing`
-Retrieves all registered token pricing rates profiles.
-
----
-
-## 8. Advanced Analytics & Predictions
-
-### `GET /api/v1/analytics/advanced`
-Retrieves P50, P90, P95, and P99 latency percentiles, dynamic anomaly logs, and linear trend predictive forecasts.
-
-### `GET /api/v1/analytics/summaries`
-Retrieves daily/weekly/monthly throughput volumes and rolling latency average arrays.
-
-### `GET /api/v1/analytics/providers`
-Retrieves provider speed, cost, and failure rates rank comparisons.
+### `GET /auth/me`
+Queries active session profile.
+- **Response (200 OK):**
+  ```json
+  {
+    "name": "Admin User",
+    "email": "you@company.com"
+  }
+  ```
 
 ---
 
-## 9. Data Exporters
+## Telemetry Traces
 
-### `GET /api/v1/traces/export?format=csv`
-Exports trace telemetry records in CSV or JSON formats.
+### `POST /traces`
+Ingests a trace payload with nested spans.
+- **Request:**
+  ```json
+  {
+    "trace_id": "tr-uuid",
+    "name": "inference_pipeline",
+    "start_time": "2026-06-29T10:00:00Z",
+    "end_time": "2026-06-29T10:00:02Z",
+    "input_data": {"prompt": "test prompt"},
+    "output_data": {"response": "test response"},
+    "spans": [
+      {
+        "span_id": "sp-uuid",
+        "name": "completion_step",
+        "span_type": "llm",
+        "start_time": "2026-06-29T10:00:00Z",
+        "end_time": "2026-06-29T10:00:02Z",
+        "model_name": "gpt-4o",
+        "prompt_tokens": 10,
+        "completion_tokens": 8,
+        "total_tokens": 18,
+        "cost": 0.0001
+      }
+    ]
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "status": "success",
+    "trace_id": "tr-uuid"
+  }
+  ```
 
-### `GET /api/v1/evaluations/export?format=csv`
-Exports evaluations records in CSV or JSON formats.
+### `GET /traces`
+Queries filtered trace records.
+- **Query Parameters:**
+  - `page` (int, default: 1)
+  - `page_size` (int, default: 25)
+  - `start_date` (string, `YYYY-MM-DD`)
+  - `end_date` (string, `YYYY-MM-DD`)
+  - `search` (string, filters by Run ID)
+  - `model` (array of strings, e.g. `gpt-4o`)
+  - `min_latency_ms` (float)
+  - `max_latency_ms` (float)
+  - `min_hall_score` (float)
+  - `max_hall_score` (float)
+- **Response (200 OK):**
+  ```json
+  {
+    "items": [
+      {
+        "run_id": "tr-uuid",
+        "model": "gpt-4o",
+        "latency_ms": 2000.0,
+        "total_tokens": 18,
+        "cost_usd": 0.0001,
+        "hall_score": 1.25,
+        "finish_reason": "stop",
+        "created_at": "2026-06-29T10:00:00Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 25,
+    "pages": 1
+  }
+  ```
+
+### `GET /traces/{trace_id}`
+Retrieves a detailed trace context with nested spans and evaluations.
+- **Response (200 OK):**
+  ```json
+  {
+    "trace_id": "tr-uuid",
+    "name": "inference_pipeline",
+    "start_time": "2026-06-29T10:00:00Z",
+    "end_time": "2026-06-29T10:00:02Z",
+    "input_data": {"prompt": "test prompt"},
+    "output_data": {"response": "test response"},
+    "custom_metadata": {},
+    "spans": [...],
+    "evaluations": [...]
+  }
+  ```
+
+### `GET /traces/export`
+Exports traces as a CSV file download.
+- **Response (200 OK):** File stream download `traces.csv`.
 
 ---
 
-## 10. Deep Diagnostics
+## Alerts
 
-### `GET /api/v1/health/diagnostics`
-Retrieves connectivity statuses for backend postgres, Ollama nodes, and OpenAI servers.
+### `GET /alerts`
+Queries active alerts grouped with severity count indicators.
+- **Response (200 OK):**
+  ```json
+  {
+    "items": [
+      {
+        "id": "alert-uuid",
+        "severity": "CRITICAL",
+        "model": "gpt-4o",
+        "metric": "latency",
+        "baseline_value": 1500.0,
+        "current_value": 3200.0,
+        "pct_change": 113.3,
+        "p_value": 0.0123,
+        "created_at": "2026-06-29T10:00:00Z",
+        "resolved": false
+      }
+    ],
+    "total": 1,
+    "severity_counts": {
+      "CRITICAL": 1,
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 0
+    }
+  }
+  ```
+
+### `PATCH /alerts/{alert_id}/resolve`
+Sets an active alert status to `"resolved"`.
+- **Response (200 OK):**
+  ```json
+  {
+    "status": "success",
+    "alert_id": "alert-uuid"
+  }
+  ```
+
+---
+
+## Analytics
+
+### `GET /analytics/kpis`
+Retrieves system-wide KPI metrics (calls, latency, cost, evaluations).
+- **Response (200 OK):**
+  ```json
+  {
+    "total_calls": 8.0,
+    "total_calls_change_pct": 8.4,
+    "avg_latency_ms": 1541.74,
+    "avg_latency_change_pct": -4.2,
+    "total_cost_usd": 0.02811,
+    "total_cost_change_pct": 14.7,
+    "avg_hall_score": 0.8175,
+    "avg_hall_score_change": -0.8
+  }
+  ```
+
+### `GET /analytics/trends`
+Queries call and cost aggregates over the selected days range.
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "date": "2026-06-29",
+      "calls": 2,
+      "avg_latency_ms": 0.123,
+      "cost_usd": 0.000062,
+      "avg_hall_score": 0.0,
+      "prompt_tokens": 20,
+      "completion_tokens": 16
+    }
+  ]
+  ```
+
+### `GET /analytics/model-comparison`
+Queries performance summaries grouped by model.
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "model": "gpt-4o",
+      "calls": 3,
+      "avg_latency_ms": 3866.66,
+      "p50_latency_ms": 3000.0,
+      "p95_latency_ms": 6200.0,
+      "p99_latency_ms": 6200.0,
+      "cost_usd": 0.02775,
+      "error_rate": 0.0,
+      "avg_hall_score": 0.685,
+      "cost_per_1k": 0.01047,
+      "avg_tokens": 883.33
+    }
+  ]
+  ```
+
+---
+
+## Evaluations
+
+### `GET /evaluations`
+Retrieves SQuAD evaluation runs history.
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "dataset": "SQuAD v2.0 (Val)",
+      "judge_model": "mistral:latest",
+      "f1_score": 0.785,
+      "precision": 0.812,
+      "recall": 0.760,
+      "threshold": 0.50,
+      "run_date": "2026-06-29T10:00:00Z"
+    }
+  ]
+  ```
+
+### `GET /evaluations/worst-responses`
+Queries top worst-scoring trace responses.
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "run_id": "tr-uuid",
+      "model": "gpt-4o",
+      "score": 0.95,
+      "reasoning": "Claim verification passed.",
+      "judge_model": "mistral",
+      "created_at": "2026-06-28T20:50:11.533Z"
+    }
+  ]
+  ```

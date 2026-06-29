@@ -1,155 +1,87 @@
-# System Architecture Guide
+# Architecture Design
 
-This document describes the design layers, pipeline flowcharts, database schemas, and modular components of the Enterprise LLM Observability Platform.
+This document describes the system design, data flow, telemetry ingestion system, and database schema for the observability platform.
 
----
+## System Topology
 
-## Technical Component Flow
+The application is structured into three layers: a React single-page frontend, a FastAPI ASGI backend, and a PostgreSQL database.
 
-```mermaid
-graph TD
-    Client[LLM Application / Client] -->|Instrumented Queries| SDK[Telemetry SDK context]
-    SDK -->|Trace & Span Signals| API[FastAPI Telemetry Ingest]
-    API -->|Repositories| Repo[Trace & Span Repositories]
-    Repo -->|SQLAlchemy Async Session| DB[(PostgreSQL / SQLite DB)]
-    
-    Dashboard[Streamlit Observability Dashboard] -->|HTTP Connection client| API
+```text
+Client SDKs / SDK Ingestion Calls
+              │
+              ▼
+       React Dashboard <───[REST / CORS]───> FastAPI API
+                                                  │
+                                                  ▼
+                                            Telemetry Engine
+                                                  │
+                                                  ▼
+                                            Evaluation Engine
+                                                  │
+                                                  ▼
+                                            Analytics Engine
+                                                  │
+                                                  ▼
+                                             PostgreSQL
+                                                  │
+                                     ┌────────────┴────────────┐
+                                     ▼                         ▼
+                                 OpenAI API               Ollama Local
 ```
 
 ---
 
-## Decoupled Architectural Layers
+## Component Roles
 
-1. **Client / Telemetry SDK**:
-   Lightweight, thread-safe Python tracking context managers (`TraceContext` and `SpanContext`) utilizing standard library `contextvars` to isolate trace sessions and prevent crossover risk. Captures exact Monotonic duration offsets and maps execution trees.
-   
-2. **Ingestion Engine (FastAPI)**:
-   High-concurrency async REST controller receiving trace packages, parsing models, validating parameters via Pydantic schemas, and managing database sessions.
-   
-3. **Persistency Layer (SQLAlchemy 2.0)**:
-   Async database connection pooling engine supporting PostgreSQL in production and SQLite in test environments. Repositories manage safe database operations and rollback transactions upon exceptions.
-   
-4. **Scorers & Evaluators (LLM-in-the-loop)**:
-   Decoupled scorer factory registry running hallucination audits, groundedness validation, faithfulness indices, and semantic similarity checks on model generations.
-   
-5. **Analytics engine**:
-   Processes ingested telemetry into timeseries throughput metrics, latency averages, total token costs, and alerts trigger crossings.
-   
-6. **Observability Dashboard (Streamlit / Plotly)**:
-   A dark glassmorphism interface loading live metrics, Gantt timeline sequence charts, evaluation tables, and query testing play pens.
+### 1. React Frontend
+- Handles state using Zustand stores.
+- Communicates with the FastAPI server using Axios clients configured with a base API route.
+- Displays metrics, trends, and comparison tables.
+
+### 2. FastAPI Backend
+- Serves HTTP requests asynchronously.
+- Validates request payloads and maps response data structures using Pydantic schemas.
+- Proxies model prompts to endpoints and records execution parameters.
+
+### 3. Database Layer
+- Persists metrics in a PostgreSQL database instance.
+- Tracks database transactions using SQLAlchemy Async connections.
+- Updates database schemas using Alembic migration files.
 
 ---
 
-## Detailed Data Ingestion Sequence
+## Telemetry Engine
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Client Application
-    participant SDK as Telemetry SDK
-    participant API as Ingestion API
-    participant DB as Database Store
+The telemetry engine organizes execution operations using traces and spans:
+- **Trace:** A collection of nested actions belonging to a single pipeline context.
+- **Span:** A specific execution step within a trace, storing token usage, latency, and costs.
 
-    User->>SDK: Open TraceContext("chat_pipeline")
-    SDK->>SDK: Initialize thread-safe ContextVars
-    User->>SDK: Open SpanContext("openai_chat")
-    User->>SDK: Call LLM Provider
-    SDK->>SDK: Capture token metadata & calculate pricing
-    User->>SDK: Close SpanContext
-    SDK->>SDK: Stop duration timer
-    User->>SDK: Close TraceContext
-    SDK->>API: POST /api/v1/traces (batch trace+spans payload)
-    API->>DB: Async transaction persist (Commit)
-    DB-->>API: Persisted status
-    API-->>SDK: 201 Created Status Response
+### Relational Schema
+
+```text
+  ┌─────────────────┐             ┌─────────────────┐
+  │      trace      │             │      span       │
+  ├─────────────────┤             ├─────────────────┤
+  │ id (PK)         │             │ id (PK)         │
+  │ trace_id (UK)   │────────────►│ trace_id (FK)   │
+  │ name            │             │ parent_span_id  │
+  │ start_time      │             │ name            │
+  │ end_time        │             │ span_type       │
+  │ input_data      │             │ start_time      │
+  │ output_data     │             │ end_time        │
+  │ custom_metadata │             │ prompt_tokens   │
+  └─────────────────┘             │ complet_tokens  │
+                                  │ total_tokens    │
+                                  │ cost            │
+                                  │ error           │
+                                  └─────────────────┘
 ```
 
 ---
 
-## Database Schema (Entity Relationships)
+## Evaluation Engine
 
-```mermaid
-erDiagram
-    TRACE ||--o{ SPAN : contains
-    TRACE ||--o{ EVALUATION : evaluates
-    SPAN ||--o{ EVALUATION : evaluates
-    
-    TRACE {
-        uuid id PK
-        string trace_id UK
-        string name
-        datetime start_time
-        datetime end_time
-        jsonb input_data
-        jsonb output_data
-        jsonb custom_metadata
-    }
-
-    SPAN {
-        uuid id PK
-        string span_id UK
-        string trace_id FK
-        string parent_span_id
-        string name
-        string span_type
-        datetime start_time
-        datetime end_time
-        jsonb input_data
-        jsonb output_data
-        string model_name
-        integer prompt_tokens
-        integer completion_tokens
-        integer total_tokens
-        numeric cost
-        text error
-        jsonb custom_metadata
-    }
-
-    EVALUATION {
-        uuid id PK
-        string trace_id FK
-        string span_id FK
-        string metric_name
-        float metric_value
-        string status
-        text feedback
-        jsonb custom_metadata
-        datetime timestamp
-    }
-
-    MODEL_PRICING {
-        integer id PK
-        string provider
-        string model_name UK
-        numeric input_token_price_per_1k
-        numeric output_token_price_per_1k
-        boolean active
-    }
-
-    ALERT {
-        uuid id PK
-        string metric_name
-        float threshold_value
-        float actual_value
-        string severity
-        string status
-        text description
-        datetime timestamp
-    }
-```
-
----
-
-## 🛡️ Resiliency & Logging Architecture
-
-### Request Correlation Tracing
-The `CorrelationMiddleware` intercepts every incoming HTTP request to attach `X-Request-ID` and `X-Correlation-ID` headers. These are bound using thread-local context variables to automatically inject the correct correlation metadata into structured `structlog` JSON logs.
-
-### Rate Limiting & Denial of Service Prevention
-The `RateLimiterMiddleware` prevents API endpoint exhaustion using a sliding window dictionary of client IP addresses. If requests cross the configured limit (120 req/min), it returns a fast `429 Too Many Requests` response bypass.
-
-### Circuit Breaker Registry
-The generic `CircuitBreaker` wraps LLM provider clients (OpenAI and Ollama). If external APIs encounter repeated timeouts or server errors:
-1. The circuit transitions from `CLOSED` to `OPEN` after **3 consecutive failures**.
-2. Subsequent calls are blocked instantly at the wrapper level for **60 seconds** to avoid cascading socket bottlenecks.
-3. Once the timeout passes, the circuit transitions to `HALF-OPEN` to allow a test request, returning to `CLOSED` upon success or back to `OPEN` on failure.
+Evaluations assess response quality upon span completion:
+- **Similarity Scorer:** Calculates cosine-similarity of response text against references.
+- **Hallucination Scorer:** Leverages a validation model to evaluate claims against context.
+- **Validation Gates:** Compares outputs against standard test runs (e.g. SQuAD benchmarks) to monitor performance.

@@ -1,29 +1,43 @@
-# Virtual environment
+# Virtual environments
 venv/
 ENV/
 env/
+.venv/
 
-# Configuration
+# Environment files
 .env
 .env.*
 !.env.example
 
-# Python cache and bytecode
+# Node / Frontend builds
+node_modules/
+dist/
+build/
+.svelte-kit/
+.next/
+
+# Python cache & bytecode
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
 .Python
 *.db
 *.sqlite
 
-# Testing and linting
+# Testing, coverage and linting
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .coverage
 htmlcov/
+coverage/
+.nyc_output/
 
-# Editor and OS settings
+# Logs
+*.log
+logs/
+
+# IDEs & System files
 .DS_Store
 .idea/
 .vscode/
@@ -32,3 +46,4 @@ htmlcov/
 *.njsproj
 *.sln
 *.swp
+Thumbs.db
