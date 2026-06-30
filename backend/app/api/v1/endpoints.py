@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.core.auth import get_current_user
+from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.alert import Alert
 from app.models.evaluation import Evaluation
@@ -1185,7 +1185,7 @@ async def auth_login(
     req: LoginRequest, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
     """Logs in credentials and yields JWT access token."""
-    from app.core.auth import create_access_token, verify_password
+    from app.core.security import create_access_token, verify_password
 
     stmt = select(User).where(User.email == req.email)
     result = await db.execute(stmt)

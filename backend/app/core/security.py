@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
-from app.config import settings
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 from fastapi import Depends, HTTPException, status

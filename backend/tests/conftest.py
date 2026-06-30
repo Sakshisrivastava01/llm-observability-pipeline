@@ -45,7 +45,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Generates a test client wrapped within the FastAPI application lifespan context."""
-    from app.core.auth import get_current_user
+    from app.core.security import get_current_user
     from app.models.user import User
 
     mock_user = User(

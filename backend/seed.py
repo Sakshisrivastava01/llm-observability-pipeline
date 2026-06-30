@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 
-from app.core.auth import hash_password
+from app.core.security import hash_password
 from app.db.session import async_session_factory
 from app.models.alert import Alert
 from app.models.evaluation import Evaluation

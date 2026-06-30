@@ -2,13 +2,9 @@ import time
 from collections.abc import Callable
 from typing import Any, TypeVar
 
+from app.core.exceptions import CircuitBreakerOpenError
+
 T = TypeVar("T")
-
-
-class CircuitBreakerOpenError(Exception):
-    """Exception raised when execution is blocked due to an open circuit breaker."""
-
-    pass
 
 
 class CircuitBreaker:

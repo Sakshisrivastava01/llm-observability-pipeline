@@ -3,8 +3,8 @@ from typing import AsyncGenerator
 
 import httpx
 from app.api.v1.endpoints import router as api_router
-from app.middleware.middleware import CorrelationMiddleware
-from app.middleware.rate_limiter import RateLimiterMiddleware
+from app.core.middleware import CorrelationMiddleware
+from app.core.rate_limiter import RateLimiterMiddleware
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
