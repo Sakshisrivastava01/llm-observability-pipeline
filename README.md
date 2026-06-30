@@ -1,273 +1,159 @@
 # LLM Command Center
 
-LLM Command Center is an observability platform for monitoring, tracing, evaluating, and analyzing large language model workloads.
+LLM Command Center is a production-grade observability platform designed to monitor, trace, evaluate, and analyze large language model workloads.
+
+<p align="center">
+  <img src="docs/logo.png" width="150" alt="LLM Command Center Logo" />
+</p>
 
 ---
 
-## Overview
+## Technical Architecture
 
-Large language model pipelines present unique monitoring challenges due to non-deterministic outputs, varied latency behaviors, and complex billing metrics. Traditional APM tools lack abstractions for token usage tracking, prompt-response hierarchies, and automated semantic evaluation.
-
-This platform provides developers with tools to capture execution traces, log detailed token consumption, and execute evaluation scorers. By capturing metadata at each inference boundary, the system identifies performance regressions and computes execution costs across OpenAI and local Ollama model profiles.
-
-Primary use cases include tracing multi-step LLM operations, monitoring latency and error metrics across models, analyzing token cost efficiency, and tracking response quality through semantic scorers.
-
----
-
-## Key Capabilities
-
-- **Request tracing:** Trace executions and capture nested spans.
-- **Workflow orchestration:** Route and process queries through evaluation and logging pipelines.
-- **Latency monitoring:** Track latency percentiles (P50, P95, P99) and duration frequency buckets.
-- **Token usage analytics:** Log prompt and completion token counts.
-- **Cost analysis:** Calculate costs based on model token rates.
-- **Provider comparison:** Compare metrics across OpenAI and Ollama integrations.
-- **Evaluation workflows:** Run groundedness and similarity scorers.
-- **Alert management:** Monitor statistically calculated regression alerts.
-- **Dashboard visualization:** Render overview metrics, trace explorer, and comparison tables.
-- **REST API:** Endpoints for payload ingestion, analytics, and settings.
-- **PostgreSQL persistence:** Persistence of telemetry records using database schemas.
-- **Docker deployment:** Local development setup with Docker Compose.
-
----
-
-## Technology Stack
-
-### Backend
-- Python
-- FastAPI
-- SQLAlchemy
-- Alembic
-- PostgreSQL
-- AsyncPG
-- Pydantic
-
-### Frontend
-- React
-- Vite
-- Tailwind CSS
-- React Router
-- Zustand
-- Axios
-- Recharts
-
-### Database
-- PostgreSQL
-- Supabase
-
-### Infrastructure
-- Docker
-- Docker Compose
-- Render
-- Vercel
-
-### Developer Tooling
-- Pytest
-- Ruff
-- MyPy
-- GitHub Actions
-
----
-
-## Architecture
-
-```text
-       Client Applications
-                │
-                ▼
-  React Dashboard <───[REST / CORS]───> FastAPI API
-                                             │
-                                             ▼
-                                     Telemetry Engine
-                                             │
-                                             ▼
-                                      Analytics Engine
-                                             │
-                                             ▼
-                                     Evaluation Engine
-                                             │
-                                             ▼
-                                     Persistence Layer
-                                             │
-                                             ▼
-                                         PostgreSQL
+```mermaid
+graph TD
+    Client[React Frontend / SDK] -->|API / Ingestion| Gateway[FastAPI Ingestion Gateway]
+    Gateway -->|Correlation / Rate Limiting| Middleware[Middleware Stack]
+    Middleware -->|Transactional Queries| DB[(PostgreSQL Database)]
+    Gateway -->|Model Evaluation| Evaluator[Evaluation Engine]
+    Evaluator -->|OpenAI Provider| OpenAI[OpenAI API]
+    Evaluator -->|Ollama Provider| Ollama[Ollama Local API]
 ```
 
+### Request Lifecycle
+1. **Ingest Phase:** Telemetry SDK captures model inputs, prompt variables, and metadata parameters, submitting them to `/api/v1/traces`.
+2. **Middleware Phase:** Requests pass through the `CorrelationMiddleware` (adds transaction IDs) and `RateLimiterMiddleware` (guards against request spikes).
+3. **Database Phase:** Records are written transactionally to PostgreSQL tables.
+4. **Scoring Phase:** The `EvaluationEngine` triggers async similarity/groundedness calculations using configured providers.
+
 ---
 
-## Workflow
-
-The lifecycle of a single request proceeds through the following pipeline:
+## Directory Structure
 
 ```text
-User Request ──► Provider ──► Telemetry ──► Evaluation ──► Analytics ──► Database ──► Dashboard
-```
-
-1. **User Request:** Client triggers an inference pipeline execution.
-2. **Provider:** Request is routed through the proxy gateway to OpenAI or local Ollama.
-3. **Telemetry:** Execution metadata, latency, and tokens are captured.
-4. **Evaluation:** Automated scorers execute context checks and semantic similarity calculations.
-5. **Analytics:** Performance KPIs and daily rolling averages are computed.
-6. **Database:** Operations records are stored in PostgreSQL using async connections.
-7. **Dashboard:** Consolidated trends, latency distributions, and active alert warnings render in the UI.
-
----
-
-## Screenshots
-
-Screenshots of the application dashboard are stored under:
-
-- Dashboard: `docs/screenshots/overview.png`
-- Analytics: `docs/screenshots/analytics.png`
-- Trace Explorer: `docs/screenshots/traces.png`
-- Alerts: `docs/screenshots/alerts.png`
-- Model Comparison: `docs/screenshots/model_comparison.png`
-- Evaluation Dashboard: `docs/screenshots/evaluations.png`
-- Settings: `docs/screenshots/settings.png`
-- Login: `docs/screenshots/login.png`
-
----
-
-## Repository Structure
-
-```text
-llm-observability-pipeline/
+LLMProject/
 ├── backend/                  # FastAPI Application Root
-│   ├── app/                  # Main package code (api, models, services)
-│   ├── alembic/              # Database schema migrations
-│   └── requirements.txt      # Python backend packages list
+│   ├── app/                  # Application Package
+│   │   ├── api/              # API Route Handlers
+│   │   ├── core/             # Configuration, Middlewares, Rate Limiter
+│   │   ├── db/               # SQLAlchemy Session and Engine Factory
+│   │   ├── models/           # SQLAlchemy DB Models
+│   │   ├── repositories/     # Data Persistence Layers
+│   │   ├── schemas/          # Pydantic Schemas
+│   │   ├── services/         # Business Logic Layer
+│   │   ├── providers/        # LLM Connectors (OpenAI, Ollama)
+│   │   ├── evaluation/       # Quality Assessment Engines
+│   │   ├── sdk/              # Telemetry Capture SDK
+│   │   ├── utils/            # Shared Utilities
+│   │   └── main.py           # FastAPI Main Entrypoint
+│   ├── alembic/              # DB Schema Versions
+│   ├── tests/                # Automated Pytest Suite
+│   ├── requirements.txt      # Dependency Definitions
+│   ├── Dockerfile            # Container Definition
+│   ├── alembic.ini           # Alembic Configuration
+│   └── .env.example          # Environment Template
 ├── frontend/                 # React Application Root
-│   ├── src/                  # Components, pages, and Zustand hooks
-│   └── package.json          # Node packages definitions
-├── docs/                     # Platform manuals
-│   ├── api.md                # REST API reference manual
-│   ├── architecture.md       # Architecture and DB schema design
-│   └── deployment.md         # Production deployment instructions
-├── tests/                    # Backend Pytest test suites
-└── docker-compose.yml        # Multi-container orchestration configurations
+│   ├── src/                  # React Source Code
+│   ├── public/               # Static Web Assets
+│   ├── package.json          # Node Configurations
+│   ├── vite.config.js        # Vite Build Settings
+│   └── .env.example          # Frontend Environment Template
+├── docs/                     # Technical Documentation
+├── docker-compose.yml        # Multi-Container Deployment Orchestrator
+├── render.yaml               # Render Infrastructure Blueprint
+└── LICENSE                   # Project License
 ```
 
 ---
 
-## Installation
+## Database Schema
 
-### Backend
-1. Initialize the virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: .\venv\Scripts\Activate.ps1
-   ```
-2. Install dependencies:
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    hashed_password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE traces (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id VARCHAR(255),
+    name VARCHAR(255) NOT NULL,
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_time TIMESTAMP WITH TIME ZONE,
+    total_cost DECIMAL(10, 5) DEFAULT 0.00000,
+    status VARCHAR(50) NOT NULL
+);
+
+-- Note: Schema index optimizations are fully defined for high throughput queries.
+CREATE INDEX idx_trace_start_time ON traces(start_time DESC);
+```
+
+---
+
+## API Reference Overview
+
+| Method | Route | Authorization | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/auth/login` | Public | Validates credentials and yields JWT access token |
+| `POST` | `/api/v1/traces` | Public | Ingests telemetry logs from LLM executions |
+| `GET` | `/api/v1/traces` | Protected | Queries historical execution logs (paginated) |
+| `GET` | `/api/v1/analytics/kpis` | Protected | Returns core metrics (latency, tokens, cost aggregates) |
+| `GET` | `/health` | Public | Core platform health check |
+
+---
+
+## Deployment Instructions
+
+### Render Deployment (Backend)
+1. Register a new web service on Render pointing to your fork.
+2. Select Root Directory: `backend`.
+3. Set the build command to `pip install -r requirements.txt` and the start command to `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+4. Add all environment variables defined in `backend/.env.example`.
+
+### Vercel Deployment (Frontend)
+1. Add a new project on Vercel pointing to the `frontend` root directory.
+2. Configure settings: Framework Preset `Vite`, Build Command `npm run build`, Output Directory `dist`.
+3. Add `vercel.json` rewrite proxy rules for API routes to target your Render backend endpoint.
+
+---
+
+## Local Development Guide
+
+### Prerequisites
+* Python 3.11+
+* Node.js 18+
+* PostgreSQL 15+
+
+### Backend Setup
+1. Create a Python virtual environment:
    ```bash
    cd backend
-   pip install --upgrade pip
+   python -m venv venv
+   source venv/bin/activate
    pip install -r requirements.txt
    ```
-3. Initialize the database schema and seed mock values:
+2. Initialize and migrate the database:
    ```bash
    python -m alembic upgrade head
    python seed.py
    ```
-4. Run the API:
+3. Run the development server:
    ```bash
-   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+   uvicorn app.main:app --reload
    ```
 
-### Frontend
-1. Install Node packages:
+### Frontend Setup
+1. Install dependencies and start the development server:
    ```bash
    cd frontend
    npm install
+   npm run dev
    ```
-2. Build assets:
-   ```bash
-   npm run build
-   ```
-3. Start the local preview:
-   ```bash
-   npm run preview
-   ```
-
-### Docker
-1. Start local container services:
-   ```bash
-   docker compose up --build
-   ```
-
-### Environment
-1. Set up the local environment settings by copying the template file:
-   ```bash
-   cp .env.example .env
-   cp .env.example backend/.env
-   ```
-
----
-
-## Configuration
-
-The application reads configurations from the following environment variables:
-
-| Variable | Description |
-|---|---|
-| `ENVIRONMENT` | Deployment environment state (`development`, `production`). |
-| `DATABASE_URL` | SQLAlchemy async connection URI. |
-| `OPENAI_API_KEY` | OpenAI API access token. |
-| `OPENAI_API_BASE` | Base endpoint URL override for OpenAI routing. |
-| `OLLAMA_API_BASE` | Host endpoint URL for the local Ollama runtime. |
-| `VITE_API_BASE_URL` | React client target backend REST URL endpoint. |
-
----
-
-## API
-
-The backend serves API requests at `/api/v1`. Refer to [api.md](docs/api.md) for full payload reference specifications.
-
-- **Authentication:** `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
-- **Telemetry Ingestion:** `POST /traces` (saves spans payload)
-- **Analytics:** `GET /analytics/kpis`, `GET /analytics/trends`, `GET /analytics/model-comparison`
-- **Evaluations:** `GET /evaluations`, `GET /evaluations/worst-responses`
-- **Alerts:** `GET /alerts`, `PATCH /alerts/{alert_id}/resolve`
-- **Inference Proxy:** `POST /inference`
-
----
-
-## Database
-
-Persisted schemas are managed in PostgreSQL.
-- **SQLAlchemy:** Non-blocking async connections engine mapping Python classes to PostgreSQL.
-- **Alembic:** Database schema migrations runner.
-- **PostgreSQL:** Persists tables for traces, spans, evaluations, alerts, and model pricing.
-
----
-
-## Testing
-
-Verify the application codebase using:
-- **Pytest:** `python -m pytest tests -v`
-- **Ruff:** `python -m ruff check .`
-- **MyPy:** `python -m mypy --strict backend/app --explicit-package-bases`
-- **Build:** `npm run build` inside `frontend/` directory
-
----
-
-## Deployment
-
-Refer to [deployment.md](docs/deployment.md) for instructions on provisioning the database (Supabase), backend API web service (Render), and static dashboard UI hosting (Vercel).
-
----
-
-## Roadmap
-
-- **Role-based access control (RBAC):** Define project access levels.
-- **Background workers:** Offload scorers execution to Celery.
-- **WebSocket streaming:** Push new traces and alerts dynamically.
-- **Prometheus metrics:** Export system KPIs to monitoring networks.
-- **Grafana dashboards:** Expose operational dashboards.
-- **Distributed tracing improvements:** Add trace context propagation.
-- **Multi-project workspaces:** Partition tracing logs across separate workspaces.
 
 ---
 
 ## License
-
-MIT
+Distributed under the MIT License. See `LICENSE` for details.
