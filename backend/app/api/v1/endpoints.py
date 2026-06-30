@@ -1,8 +1,12 @@
 from typing import Any
 
+from app.core.auth import get_current_user
 from app.db.session import get_db
 from app.models.alert import Alert
+from app.models.evaluation import Evaluation
+from app.models.span import Span
 from app.models.trace import Trace
+from app.models.user import User
 from app.providers import ProviderFactory
 from app.repositories.pricing_repository import PricingRepository
 from app.repositories.trace_repository import TraceRepository
@@ -11,8 +15,9 @@ from app.services.analytics_service import AnalyticsService
 from app.services.evaluation_service import EvaluationService
 from app.services.telemetry_service import TelemetryService
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.routing import APIRoute
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -344,10 +349,10 @@ async def get_traces(
 ) -> dict[str, Any]:
     """Queries paginated and filtered ingested traces expected by TraceExplorer."""
     import math
+    from datetime import datetime, timedelta
 
     from sqlalchemy.orm import selectinload
 
-    # Explicitly extract query parameters to avoid formatting issues
     qp = request.query_params
 
     try:
@@ -371,12 +376,15 @@ async def get_traces(
     max_latency_ms = float(max_lat_raw) if max_lat_raw and max_lat_raw.strip() else None
 
     min_score_raw = qp.get("min_hall_score")
-    min_hall_score = float(min_score_raw) if min_score_raw and min_score_raw.strip() else None
+    min_hall_score = (
+        float(min_score_raw) if min_score_raw and min_score_raw.strip() else None
+    )
 
     max_score_raw = qp.get("max_hall_score")
-    max_hall_score = float(max_score_raw) if max_score_raw and max_score_raw.strip() else None
+    max_hall_score = (
+        float(max_score_raw) if max_score_raw and max_score_raw.strip() else None
+    )
 
-    # Extract model filter parameters manually to be 100% robust against array schemas
     models_filter = qp.getlist("model")
     actual_models = []
     for m in models_filter:
@@ -385,29 +393,67 @@ async def get_traces(
         else:
             actual_models.append(m)
 
-    stmt = (
-        select(Trace)
-        .options(selectinload(Trace.spans), selectinload(Trace.evaluations))
-        .order_by(Trace.start_time.desc())
+    # Build SQL query with joined tables and filters applied at DB layer
+    stmt = select(Trace).options(
+        selectinload(Trace.spans), selectinload(Trace.evaluations)
     )
+
+    # Apply search filter
+    if search and search.strip():
+        stmt = stmt.where(Trace.trace_id.ilike(f"%{search.strip()}%"))
+
+    # Apply date filters
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            stmt = stmt.where(Trace.start_time >= start_dt)
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
+            stmt = stmt.where(Trace.start_time < end_dt)
+        except ValueError:
+            pass
+
+    # Apply latency duration filters
+    if min_latency_ms is not None:
+        stmt = stmt.where(
+            Trace.end_time - Trace.start_time >= timedelta(milliseconds=min_latency_ms)
+        )
+    if max_latency_ms is not None:
+        stmt = stmt.where(
+            Trace.end_time - Trace.start_time <= timedelta(milliseconds=max_latency_ms)
+        )
+
+    # Apply model filters via Spans join
+    if actual_models:
+        stmt = stmt.join(Trace.spans).where(
+            Span.span_type == "llm", Span.model_name.in_(actual_models)
+        )
+
+    # Apply evaluation score filters via Evaluations join
+    if min_hall_score is not None or max_hall_score is not None:
+        stmt = stmt.join(Trace.evaluations).where(
+            Evaluation.metric_name == "hallucination"
+        )
+        if min_hall_score is not None:
+            stmt = stmt.where(Evaluation.metric_value >= min_hall_score)
+        if max_hall_score is not None:
+            stmt = stmt.where(Evaluation.metric_value <= max_hall_score)
+
+    # Get total count of distinct matched traces before paginating
+    count_stmt = select(func.count(distinct(Trace.id))).select_from(stmt.subquery())
+    total = (await db.execute(count_stmt)).scalar() or 0
+
+    # Retrieve paginated trace entities
+    stmt = stmt.order_by(Trace.start_time.desc()).distinct()
+    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(stmt)
-    all_traces = result.scalars().all()
+    traces = result.scalars().all()
 
     filtered = []
-    for t in all_traces:
-        # 1. Search Run ID filter
-        if search and search.strip():
-            if search.strip().lower() not in t.trace_id.lower():
-                continue
-
-        # 2. Date Range filters
-        t_start_str = t.start_time.strftime("%Y-%m-%d")
-        if start_date and t_start_str < start_date:
-            continue
-        if end_date and t_start_str > end_date:
-            continue
-
-        # 3. Extract metrics from spans
+    for t in traces:
         model_name = None
         total_tokens = 0
         cost_usd = 0.0
@@ -423,32 +469,13 @@ async def get_traces(
         if not model_name:
             model_name = "gpt-4o"
 
-        # 4. Model Name filter
-        if actual_models and model_name not in actual_models:
-            continue
-
-        # 5. Latency Duration filters
-        latency_ms = (t.end_time - t.start_time).total_seconds() * 1000.0
-        if min_latency_ms is not None and latency_ms < min_latency_ms:
-            continue
-        if max_latency_ms is not None and latency_ms > max_latency_ms:
-            continue
-
-        # 6. Hallucination Scorer filters
         hall_score = None
         for ev in t.evaluations:
             if ev.metric_name == "hallucination":
                 hall_score = float(ev.metric_value)
                 break
 
-        if min_hall_score is not None and (
-            hall_score is None or hall_score < min_hall_score
-        ):
-            continue
-        if max_hall_score is not None and (
-            hall_score is None or hall_score > max_hall_score
-        ):
-            continue
+        latency_ms = (t.end_time - t.start_time).total_seconds() * 1000.0
 
         filtered.append(
             {
@@ -463,14 +490,10 @@ async def get_traces(
             }
         )
 
-    total = len(filtered)
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-    items = filtered[start_idx:end_idx]
     pages = math.ceil(total / page_size) if page_size > 0 else 1
 
     return {
-        "items": items,
+        "items": filtered,
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -776,7 +799,9 @@ async def get_alerts(
         else:
             actual_severities.append(s)
 
-    stmt = select(Alert).where(Alert.status == "active").order_by(Alert.timestamp.desc())
+    stmt = (
+        select(Alert).where(Alert.status == "active").order_by(Alert.timestamp.desc())
+    )
     result = await db.execute(stmt)
     alerts = result.scalars().all()
 
@@ -1156,29 +1181,42 @@ async def health_diagnostics(
 
 
 @router.post("/auth/login", response_model=LoginResponse)
-async def auth_login(req: LoginRequest) -> dict[str, Any]:
+async def auth_login(
+    req: LoginRequest, db: AsyncSession = Depends(get_db)
+) -> dict[str, Any]:
     """Logs in credentials and yields JWT access token."""
+    from app.core.auth import create_access_token, verify_password
+
+    stmt = select(User).where(User.email == req.email)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+    if not user or not verify_password(req.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+
+    token = create_access_token(data={"sub": user.email})
     return {
         "user": {
-            "name": req.email.split("@")[0].capitalize(),
-            "email": req.email,
+            "name": user.name,
+            "email": user.email,
         },
-        "access_token": "mock-access-token-jwt-style-string",
+        "access_token": token,
     }
 
 
 @router.post("/auth/logout")
-async def auth_logout() -> dict[str, str]:
+async def auth_logout(
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
     """Revokes active authentication credentials session."""
     return {"status": "success"}
 
 
 @router.get("/auth/me", response_model=UserResponse)
-async def auth_me() -> dict[str, str]:
+async def auth_me(current_user: User = Depends(get_current_user)) -> dict[str, str]:
     """Queries profile information for the authenticated active user session."""
     return {
-        "name": "Admin User",
-        "email": "you@company.com",
+        "name": current_user.name,
+        "email": current_user.email,
     }
 
 
@@ -1197,19 +1235,21 @@ async def get_analytics_trends(
         else:
             actual_models.append(m)
 
+    from datetime import datetime, timedelta, timezone
+
     from sqlalchemy.orm import selectinload
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     stmt = (
         select(Trace)
         .options(selectinload(Trace.spans), selectinload(Trace.evaluations))
+        .where(Trace.start_time >= cutoff)
         .order_by(Trace.start_time.asc())
+        .limit(10000)
     )
     result = await db.execute(stmt)
     traces = result.scalars().all()
-
-    from datetime import datetime, timedelta, timezone
-
-    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
 
     daily_data: dict[str, dict[str, Any]] = {}
     for t in traces:
@@ -1295,8 +1335,11 @@ async def get_model_comparison(
 
     from sqlalchemy.orm import selectinload
 
-    stmt = select(Trace).options(
-        selectinload(Trace.spans), selectinload(Trace.evaluations)
+    stmt = (
+        select(Trace)
+        .options(selectinload(Trace.spans), selectinload(Trace.evaluations))
+        .order_by(Trace.start_time.desc())
+        .limit(10000)
     )
     result = await db.execute(stmt)
     traces = result.scalars().all()
@@ -1391,7 +1434,12 @@ async def get_latency_distribution(
 
     from sqlalchemy.orm import selectinload
 
-    stmt = select(Trace).options(selectinload(Trace.spans))
+    stmt = (
+        select(Trace)
+        .options(selectinload(Trace.spans))
+        .order_by(Trace.start_time.desc())
+        .limit(10000)
+    )
     result = await db.execute(stmt)
     traces = result.scalars().all()
 
@@ -1446,8 +1494,11 @@ async def get_hallucination_scores(
 
     from sqlalchemy.orm import selectinload
 
-    stmt = select(Trace).options(
-        selectinload(Trace.spans), selectinload(Trace.evaluations)
+    stmt = (
+        select(Trace)
+        .options(selectinload(Trace.spans), selectinload(Trace.evaluations))
+        .order_by(Trace.start_time.desc())
+        .limit(10000)
     )
     result = await db.execute(stmt)
     traces = result.scalars().all()
@@ -1509,6 +1560,7 @@ async def get_hallucination_trend(
         select(Trace)
         .options(selectinload(Trace.spans), selectinload(Trace.evaluations))
         .order_by(Trace.start_time.asc())
+        .limit(10000)
     )
     result = await db.execute(stmt)
     traces = result.scalars().all()
@@ -1556,8 +1608,11 @@ async def get_worst_responses(
 
     from sqlalchemy.orm import selectinload
 
-    stmt = select(Trace).options(
-        selectinload(Trace.spans), selectinload(Trace.evaluations)
+    stmt = (
+        select(Trace)
+        .options(selectinload(Trace.spans), selectinload(Trace.evaluations))
+        .order_by(Trace.start_time.desc())
+        .limit(10000)
     )
     result = await db.execute(stmt)
     traces = result.scalars().all()
@@ -1603,3 +1658,13 @@ async def get_tracked_models(db: AsyncSession = Depends(get_db)) -> list[str]:
     if not models:
         models = ["gpt-4o", "gpt-3.5-turbo", "llama3"]
     return models
+
+
+# Enforce authentication on all routes except login, health, and trace ingestion (POST /traces)
+for route in router.routes:
+    if isinstance(route, APIRoute):
+        if route.path not in ["/auth/login", "/health", "/traces"] or (
+            route.path == "/traces"
+            and (not route.methods or "POST" not in route.methods)
+        ):
+            route.dependencies.append(Depends(get_current_user))

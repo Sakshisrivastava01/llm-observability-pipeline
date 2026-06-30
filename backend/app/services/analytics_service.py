@@ -1,7 +1,7 @@
 from app.models.evaluation import Evaluation
 from app.models.span import Span
 from app.models.trace import Trace
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -13,12 +13,11 @@ class AnalyticsService:
 
     async def get_kpis(self) -> dict[str, float]:
         """Calculates system-wide KPIs: request volume, mean latency, token count, aggregate cost, and success rate."""
-        # Query only timestamps to avoid full Trace entity initialization overhead
-        trace_stmt = select(Trace.start_time, Trace.end_time)
-        trace_result = await self.db.execute(trace_stmt)
-        trace_rows = trace_result.all()
+        # 1. Get total request count
+        count_stmt = select(func.count(Trace.id))
+        total_requests = (await self.db.execute(count_stmt)).scalar() or 0
 
-        if not trace_rows:
+        if total_requests == 0:
             return {
                 "total_requests": 0.0,
                 "avg_latency": 0.0,
@@ -27,20 +26,32 @@ class AnalyticsService:
                 "success_rate": 100.0,
             }
 
-        total_requests = len(trace_rows)
+        # 2. Get average latency of traces (limited to last 10000 traces for safety, calculated via SQL if supported)
+        # To remain database-agnostic (SQLite vs PG interval difference), fetch only the start/end timestamps of recent traces.
+        trace_stmt = (
+            select(Trace.start_time, Trace.end_time)
+            .order_by(Trace.start_time.desc())
+            .limit(10000)
+        )
+        trace_result = await self.db.execute(trace_stmt)
+        trace_rows = trace_result.all()
+
         latencies = [(row[1] - row[0]).total_seconds() for row in trace_rows]
-        avg_latency = sum(latencies) / total_requests
+        avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
 
-        # Query specific attributes from spans rather than full entities
-        span_stmt = select(Span.total_tokens, Span.cost, Span.error)
+        # 3. Perform fully aggregated SQL query on spans table to fetch tokens, cost, and error counts
+        span_stmt = select(
+            func.sum(Span.total_tokens),
+            func.sum(Span.cost),
+            func.sum(case((Span.error.isnot(None), 1), else_=0)),
+        )
         span_result = await self.db.execute(span_stmt)
-        span_rows = span_result.all()
+        total_tokens, total_cost, errors = span_result.first() or (0, 0.0, 0)
 
-        total_tokens = sum(row[0] for row in span_rows)
-        total_cost = sum(float(row[1]) for row in span_rows)
+        total_tokens = total_tokens or 0
+        total_cost = float(total_cost or 0.0)
+        errors = errors or 0
 
-        # Count errors based on non-null error column
-        errors = sum(1 for row in span_rows if row[2] is not None)
         success_rate = (
             ((total_requests - errors) / total_requests) * 100.0
             if total_requests
@@ -63,7 +74,12 @@ class AnalyticsService:
 
     async def detect_regressions(self) -> dict[str, bool]:
         """Compares recent request durations against baseline P95 latency to trigger warnings."""
-        stmt = select(Trace.start_time, Trace.end_time)
+        # Limit regression check query to the most recent 1000 traces to prevent full table scans
+        stmt = (
+            select(Trace.start_time, Trace.end_time)
+            .order_by(Trace.start_time.desc())
+            .limit(1000)
+        )
         result = await self.db.execute(stmt)
         rows = result.all()
 
@@ -73,7 +89,7 @@ class AnalyticsService:
         latencies = sorted([(row[1] - row[0]).total_seconds() for row in rows])
         p95 = latencies[int(len(latencies) * 0.95)]
 
-        # Baseline mean latency
+        # Baseline mean latency of recent requests
         baseline = sum(latencies) / len(latencies)
 
         # Flag regression if P95 is more than 2x baseline

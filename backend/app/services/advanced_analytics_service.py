@@ -1,10 +1,9 @@
 import math
-from datetime import timedelta
 from typing import Any
 
 from app.models.span import Span
 from app.models.trace import Trace
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -15,8 +14,13 @@ class AdvancedAnalyticsService:
         self.db = db
 
     async def get_percentiles(self) -> dict[str, float]:
-        """Calculates P50, P90, P95, and P99 latency percentiles of ingested transactions."""
-        stmt = select(Trace.start_time, Trace.end_time)
+        """Calculates P50, P90, P95, and P99 latency percentiles of the last 10000 transactions."""
+        # Query only specific columns and limit to the last 10000 records to prevent OOM
+        stmt = (
+            select(Trace.start_time, Trace.end_time)
+            .order_by(Trace.start_time.desc())
+            .limit(10000)
+        )
         result = await self.db.execute(stmt)
         rows = result.all()
         if not rows:
@@ -41,35 +45,34 @@ class AdvancedAnalyticsService:
     async def get_throughput_trends(
         self, interval: str = "daily"
     ) -> list[dict[str, Any]]:
-        """Calculates daily, weekly, or monthly query volumes."""
-        stmt = select(Trace.start_time).order_by(Trace.start_time.asc())
-        result = await self.db.execute(stmt)
-        rows = result.scalars().all()
-        if not rows:
-            return []
-
-        counts: dict[str, int] = {}
-        for dt in rows:
-            if interval == "hourly":
-                key = dt.strftime("%Y-%m-%d %H:00")
-            elif interval == "weekly":
-                monday = dt - timedelta(days=dt.weekday())
-                key = monday.strftime("%Y-%m-%d")
-            elif interval == "monthly":
-                key = dt.strftime("%Y-%m")
-            else:
-                key = dt.strftime("%Y-%m-%d")
-            counts[key] = counts.get(key, 0) + 1
-
-        return [{"timestamp": k, "requests": v} for k, v in sorted(counts.items())]
-
-    async def get_rolling_averages(self, window: int = 5) -> list[dict[str, Any]]:
-        """Calculates a moving average sequence of request durations."""
-        stmt = select(Trace.trace_id, Trace.start_time, Trace.end_time).order_by(
-            Trace.start_time.asc()
+        """Calculates query volumes aggregated directly in the database."""
+        # Database-agnostic daily aggregation using func.date (limit to last 90 days for trends)
+        stmt = (
+            select(
+                func.date(Trace.start_time).label("day"),
+                func.count(Trace.id).label("requests"),
+            )
+            .group_by(func.date(Trace.start_time))
+            .order_by(func.date(Trace.start_time).asc())
+            .limit(90)
         )
         result = await self.db.execute(stmt)
         rows = result.all()
+        if not rows:
+            return []
+
+        return [{"timestamp": str(row[0]), "requests": int(row[1])} for row in rows]
+
+    async def get_rolling_averages(self, window: int = 5) -> list[dict[str, Any]]:
+        """Calculates a moving average sequence of request durations for the last 1000 traces."""
+        stmt = (
+            select(Trace.trace_id, Trace.start_time, Trace.end_time)
+            .order_by(Trace.start_time.desc())
+            .limit(1000)
+        )
+        result = await self.db.execute(stmt)
+        # Reverse retrieved list to sort chronologically for output
+        rows = list(reversed(result.all()))
         if not rows:
             return []
 
@@ -91,8 +94,12 @@ class AdvancedAnalyticsService:
         return data
 
     async def detect_anomalies(self) -> list[dict[str, Any]]:
-        """Flags transaction outliers exceeding a 2x standard deviation threshold boundary."""
-        stmt = select(Trace.trace_id, Trace.name, Trace.start_time, Trace.end_time)
+        """Flags transaction outliers exceeding a 2x standard deviation threshold boundary for the last 1000 traces."""
+        stmt = (
+            select(Trace.trace_id, Trace.name, Trace.start_time, Trace.end_time)
+            .order_by(Trace.start_time.desc())
+            .limit(1000)
+        )
         result = await self.db.execute(stmt)
         rows = result.all()
         if not rows or len(rows) < 5:
@@ -120,10 +127,14 @@ class AdvancedAnalyticsService:
         return anomalies
 
     async def predict_metrics(self) -> dict[str, float]:
-        """Predicts tomorrow's latency, token budget, and success rates via regression trends."""
-        stmt = select(Trace.start_time, Trace.end_time).order_by(Trace.start_time.asc())
+        """Predicts tomorrow's latency, token budget, and success rates via regression trends of the last 1000 runs."""
+        stmt = (
+            select(Trace.start_time, Trace.end_time)
+            .order_by(Trace.start_time.desc())
+            .limit(1000)
+        )
         result = await self.db.execute(stmt)
-        trace_rows = result.all()
+        trace_rows = list(reversed(result.all()))
         if not trace_rows:
             return {
                 "predicted_latency": 0.0,
@@ -131,7 +142,7 @@ class AdvancedAnalyticsService:
                 "predicted_success_rate": 100.0,
             }
 
-        span_stmt = select(Span.cost, Span.error)
+        span_stmt = select(Span.cost, Span.error).limit(1000)
         span_result = await self.db.execute(span_stmt)
         span_rows = span_result.all()
 
@@ -151,9 +162,15 @@ class AdvancedAnalyticsService:
         else:
             next_latency = latencies[0] if latencies else 0.0
 
-        avg_cost = sum(float(row[0]) for row in span_rows) / n if n else 0.0
+        avg_cost = (
+            sum(float(row[0]) for row in span_rows) / len(span_rows)
+            if span_rows
+            else 0.0
+        )
         errors = sum(1 for row in span_rows if row[1] is not None)
-        success_rate = ((n - errors) / n) * 100.0 if n else 100.0
+        success_rate = (
+            ((len(span_rows) - errors) / len(span_rows)) * 100.0 if span_rows else 100.0
+        )
 
         return {
             "predicted_latency": float(next_latency),
@@ -162,15 +179,21 @@ class AdvancedAnalyticsService:
         }
 
     async def get_provider_comparison(self) -> dict[str, Any]:
-        """Provides rank models comparing costs, speed, and reliability across OpenAI and Ollama."""
-        stmt = select(
-            Span.model_name,
-            Span.start_time,
-            Span.end_time,
-            Span.cost,
-            Span.total_tokens,
-            Span.error,
-        ).where(Span.span_type == "llm")
+        """Provides rank models comparing costs, speed, and reliability across OpenAI and Ollama using SQL grouping."""
+        # Restrict table scans to the last 10000 spans
+        stmt = (
+            select(
+                Span.model_name,
+                Span.start_time,
+                Span.end_time,
+                Span.cost,
+                Span.total_tokens,
+                Span.error,
+            )
+            .where(Span.span_type == "llm")
+            .order_by(Span.start_time.desc())
+            .limit(10000)
+        )
         result = await self.db.execute(stmt)
         rows = result.all()
 

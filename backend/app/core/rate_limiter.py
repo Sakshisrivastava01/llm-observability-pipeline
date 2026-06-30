@@ -26,6 +26,15 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else "unknown"
         now = time.time()
 
+        # Prune request histories for inactive client IPs periodically if dictionary grows too large
+        if len(self.requests) > 5000:
+            with self.lock:
+                self.requests = {
+                    ip: hist
+                    for ip, hist in self.requests.items()
+                    if any(now - t < self.window_seconds for t in hist)
+                }
+
         with self.lock:
             history = self.requests.get(client_ip, [])
             # Clean outdated timestamps

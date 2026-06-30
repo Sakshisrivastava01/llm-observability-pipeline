@@ -1,3 +1,4 @@
+import os
 from typing import Any
 
 import httpx
@@ -19,7 +20,7 @@ class TelemetryCollector:
     @classmethod
     async def submit_trace(cls, payload: dict[str, Any]) -> None:
         """Transmits trace and nested span hierarchies asynchronously to the API."""
-        url = "http://localhost:8000/api/v1/traces"
+        url = os.getenv("TELEMETRY_INGEST_URL", "http://localhost:8000/api/v1/traces")
         try:
             client = cls.get_client()
             resp = await client.post(url, json=payload, timeout=5.0)

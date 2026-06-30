@@ -5,8 +5,10 @@ import httpx
 from app.api.v1.endpoints import router as api_router
 from app.core.middleware import CorrelationMiddleware
 from app.core.rate_limiter import RateLimiterMiddleware
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 
 @asynccontextmanager
@@ -34,6 +36,26 @@ app.add_middleware(CorrelationMiddleware)
 app.add_middleware(RateLimiterMiddleware, max_requests=120)
 
 app.include_router(api_router, prefix="/api/v1")
+
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(
+    request: Request, exc: SQLAlchemyError
+) -> Response:
+    """Catches database-related exceptions globally, returning 400 Bad Request."""
+    return JSONResponse(
+        status_code=400,
+        content={"detail": f"Database integrity error: {str(exc)}"},
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception) -> Response:
+    """Catches all unhandled generic exceptions, returning 500 Internal Server Error."""
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal server error: {str(exc)}"},
+    )
 
 
 @app.get("/health")

@@ -36,7 +36,11 @@ jobs:
         run: ruff format --check .
 
       - name: MyPy Static Type Check
-        run: mypy --strict backend/app
+        run: mypy --strict -p app
+        env:
+          MYPYPATH: backend
 
       - name: Execute pytest suite
         run: pytest tests -v
+        env:
+          PYTHONPATH: backend

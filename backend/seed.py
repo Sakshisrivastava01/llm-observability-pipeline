@@ -1,12 +1,14 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 
+from app.core.auth import hash_password
 from app.db.session import async_session_factory
 from app.models.alert import Alert
 from app.models.evaluation import Evaluation
 from app.models.pricing import ModelPricing
 from app.models.span import Span
 from app.models.trace import Trace
+from app.models.user import User
 from sqlalchemy import delete
 
 
@@ -20,6 +22,16 @@ async def seed_data() -> None:
         await db.execute(delete(Span))
         await db.execute(delete(Trace))
         await db.execute(delete(ModelPricing))
+        await db.execute(delete(User))
+        await db.commit()
+
+        # Seed default user
+        admin_user = User(
+            email="admin@company.com",
+            hashed_password=hash_password("password"),
+            name="Admin User",
+        )
+        db.add(admin_user)
         await db.commit()
 
         # 1. Seed Model Pricing Profiles
