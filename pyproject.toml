@@ -11,8 +11,8 @@ python_version = "3.11"
 strict = true
 ignore_missing_imports = true
 mypy_path = "backend"
-exclude = ["venv", ".git", ".pytest_cache", ".ruff_cache", "tests"]
+exclude = ["venv", ".git", ".pytest_cache", ".ruff_cache", "backend/tests"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
-testpaths = ["tests"]
+testpaths = ["backend/tests"]

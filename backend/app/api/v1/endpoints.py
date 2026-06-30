@@ -1141,7 +1141,7 @@ async def health_diagnostics(
 ) -> dict[str, Any]:
     """Retrieves connection health details of the database, OpenAI, and Ollama."""
     import httpx
-    from app.core.config import settings
+    from app.config import settings
     from sqlalchemy import text
 
     # 1. Database check

@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 from app.core.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
-from app.core.rate_limiter import RateLimiterMiddleware
+from app.middleware.rate_limiter import RateLimiterMiddleware
 from app.services.advanced_analytics_service import AdvancedAnalyticsService
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
