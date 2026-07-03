@@ -28,6 +28,10 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/observability
       - ENVIRONMENT=production
       - OLLAMA_API_BASE=http://host.docker.internal:11434
+      - JWT_SECRET_KEY=3aef6678ab22cd4f11f43a992bc80918731558291a1a5b827e8a939f8df2d2b5
+      - SENDGRID_API_KEY=mock-sendgrid-key
+      - SENDGRID_FROM_EMAIL=noreply@company.com
+      - OPENAI_API_KEY=mock-openai-key
     ports:
       - "8000:8000"
     extra_hosts:

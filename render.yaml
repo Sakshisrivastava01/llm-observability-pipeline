@@ -17,3 +17,9 @@ services:
         value: https://api.openai.com/v1
       - key: OLLAMA_API_BASE
         value: http://localhost:11434
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: SENDGRID_FROM_EMAIL
+        sync: false

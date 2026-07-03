@@ -16,3 +16,4 @@ mypy>=1.9.0
 pyjwt>=2.8.0
 bcrypt>=4.1.0
 sendgrid>=6.10.0
+pytest-cov>=4.1.0
