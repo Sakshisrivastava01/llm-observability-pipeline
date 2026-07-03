@@ -11,8 +11,6 @@ if TYPE_CHECKING:
 
 
 class Span(Base):
-    """Database model mapping execution spans (e.g. LLM calls, tools, retrieval)."""
-
     __tablename__ = "span"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -50,5 +48,4 @@ class Span(Base):
         JSON, default=dict, nullable=False
     )
 
-    # Relationships
     trace: Mapped["Trace"] = relationship("Trace", back_populates="spans")

@@ -12,8 +12,6 @@ if TYPE_CHECKING:
 
 
 class Trace(Base):
-    """Database model mapping top-level transactions (Traces)."""
-
     __tablename__ = "trace"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -35,7 +33,6 @@ class Trace(Base):
         JSON, default=dict, nullable=False
     )
 
-    # Relationships
     spans: Mapped[list["Span"]] = relationship(
         "Span", back_populates="trace", cascade="all, delete-orphan"
     )

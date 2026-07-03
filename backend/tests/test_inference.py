@@ -6,7 +6,6 @@ from app.providers.base import ProviderResponse
 
 @pytest.mark.anyio
 async def test_inference_proxy_pipeline(client) -> None:
-    """Verifies that the proxy endpoint handles LLM completions, saves traces, and triggers evaluations."""
     mock_response = ProviderResponse(
         text="FastAPI is an asynchronous web framework.",
         prompt_tokens=10,
@@ -48,7 +47,6 @@ async def test_inference_proxy_pipeline(client) -> None:
         assert "response" in data
         assert data["response"] == "FastAPI is an asynchronous web framework."
         assert len(data["evaluations"]) > 0
-        # Check evaluations were logged
         metrics = [e["metric_name"] for e in data["evaluations"]]
         assert "quality" in metrics
         assert "hallucination" in metrics

@@ -8,10 +8,7 @@ from sqlalchemy import select
 
 
 class TraceRepository(BaseRepository):
-    """Handles CRUD and queries for Traces and nested Spans in the database."""
-
     def _parse_dt(self, val: str | datetime) -> datetime:
-        """Helper to parse datetime strings with timezone safety (Z compatibility for Python < 3.11)."""
         if isinstance(val, str):
             if val.endswith("Z"):
                 val = val[:-1] + "+00:00"
@@ -19,7 +16,6 @@ class TraceRepository(BaseRepository):
         return val
 
     async def create(self, data: dict[str, Any]) -> Trace:
-        """Persists a new Trace along with its nested child Spans in a safe transaction block."""
         try:
             start_time = self._parse_dt(data["start_time"])
             end_time = self._parse_dt(data["end_time"])
@@ -36,7 +32,6 @@ class TraceRepository(BaseRepository):
             self.db.add(trace)
             await self.db.flush()
 
-            # Append nested spans if present in payload
             if "spans" in data:
                 for span_data in data["spans"]:
                     s_start = self._parse_dt(span_data["start_time"])
@@ -85,7 +80,6 @@ class TraceRepository(BaseRepository):
             raise
 
     async def get_all(self, limit: int = 100, offset: int = 0) -> list[Trace]:
-        """Retrieves a list of traces ordered by start time descending."""
         from sqlalchemy.orm import selectinload
 
         stmt = (
@@ -99,7 +93,6 @@ class TraceRepository(BaseRepository):
         return list(result.scalars().all())
 
     async def get_by_trace_id(self, trace_id: str) -> Trace | None:
-        """Finds a single trace by its unique trace identifier string."""
         from sqlalchemy.orm import selectinload
 
         stmt = (

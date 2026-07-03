@@ -4,8 +4,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class ModelPricing(Base):
-    """Database model mapping per-token API inference pricing profiles."""
-
     __tablename__ = "model_pricing"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)

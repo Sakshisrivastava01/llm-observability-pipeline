@@ -89,10 +89,8 @@ async def forgot_password(
 
     user = await user_repo.get_by_email(payload.email)
     if user:
-        # Delete previous unused OTPs
         await auth_repo.delete_unused_tokens_by_user(user.id)
 
-        # Generate 6 digit OTP
         otp = f"{random.randint(100000, 999999)}"
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
 
@@ -103,7 +101,6 @@ async def forgot_password(
         )
         await auth_repo.create_password_reset_token(token)
 
-        # Send email
         send_password_reset_email(user.email, otp)
 
     return ForgotPasswordResponse(message="If this email exists, OTP has been sent.")
@@ -116,7 +113,6 @@ async def reset_password(
     user_repo = UserRepository(db)
     auth_repo = AuthRepository(db)
 
-    # verify OTP, verify expiry, verify unused
     token = await auth_repo.get_active_token_by_email_and_otp(
         payload.email, payload.otp
     )
@@ -140,14 +136,11 @@ async def reset_password(
             detail="User not found",
         )
 
-    # hash new password
     hashed = hash_password(payload.new_password)
     user.hashed_password = hashed
 
-    # mark OTP used
     token.used = True
 
-    # delete expired OTPs
     await auth_repo.delete_expired_tokens()
 
     return ResetPasswordResponse(message="Password reset successful")

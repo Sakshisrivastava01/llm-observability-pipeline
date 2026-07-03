@@ -4,8 +4,6 @@ from app.evaluation.base import LLMBaseScorer, ScorerResult
 
 
 class HallucinationScorer(LLMBaseScorer):
-    """Evaluates factual accuracy and detects response hallucinations."""
-
     async def score(
         self,
         output: str,

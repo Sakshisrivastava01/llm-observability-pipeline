@@ -8,14 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class AdvancedAnalyticsService:
-    """Computes duration percentiles, rolling averages, outliers, and forecasting predictions."""
-
     def __init__(self, db: AsyncSession):
         self.db = db
 
     async def get_percentiles(self) -> dict[str, float]:
-        """Calculates P50, P90, P95, and P99 latency percentiles of the last 10000 transactions."""
-        # Query only specific columns and limit to the last 10000 records to prevent OOM
         stmt = (
             select(Trace.start_time, Trace.end_time)
             .order_by(Trace.start_time.desc())
@@ -45,8 +41,6 @@ class AdvancedAnalyticsService:
     async def get_throughput_trends(
         self, interval: str = "daily"
     ) -> list[dict[str, Any]]:
-        """Calculates query volumes aggregated directly in the database."""
-        # Database-agnostic daily aggregation using func.date (limit to last 90 days for trends)
         stmt = (
             select(
                 func.date(Trace.start_time).label("day"),
@@ -64,14 +58,12 @@ class AdvancedAnalyticsService:
         return [{"timestamp": str(row[0]), "requests": int(row[1])} for row in rows]
 
     async def get_rolling_averages(self, window: int = 5) -> list[dict[str, Any]]:
-        """Calculates a moving average sequence of request durations for the last 1000 traces."""
         stmt = (
             select(Trace.trace_id, Trace.start_time, Trace.end_time)
             .order_by(Trace.start_time.desc())
             .limit(1000)
         )
         result = await self.db.execute(stmt)
-        # Reverse retrieved list to sort chronologically for output
         rows = list(reversed(result.all()))
         if not rows:
             return []
@@ -94,7 +86,6 @@ class AdvancedAnalyticsService:
         return data
 
     async def detect_anomalies(self) -> list[dict[str, Any]]:
-        """Flags transaction outliers exceeding a 2x standard deviation threshold boundary for the last 1000 traces."""
         stmt = (
             select(Trace.trace_id, Trace.name, Trace.start_time, Trace.end_time)
             .order_by(Trace.start_time.desc())
@@ -127,7 +118,6 @@ class AdvancedAnalyticsService:
         return anomalies
 
     async def predict_metrics(self) -> dict[str, float]:
-        """Predicts tomorrow's latency, token budget, and success rates via regression trends of the last 1000 runs."""
         stmt = (
             select(Trace.start_time, Trace.end_time)
             .order_by(Trace.start_time.desc())
@@ -179,8 +169,6 @@ class AdvancedAnalyticsService:
         }
 
     async def get_provider_comparison(self) -> dict[str, Any]:
-        """Provides rank models comparing costs, speed, and reliability across OpenAI and Ollama using SQL grouping."""
-        # Restrict table scans to the last 10000 spans
         stmt = (
             select(
                 Span.model_name,

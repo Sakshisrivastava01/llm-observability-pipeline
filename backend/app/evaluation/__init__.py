@@ -5,7 +5,6 @@ from app.evaluation.hallucination import HallucinationScorer
 from app.evaluation.quality import QualityScorer
 from app.evaluation.similarity import SemanticSimilarityScorer
 
-# Register concrete scorers to the scorer factory
 ScorerFactory.register("hallucination", HallucinationScorer)
 ScorerFactory.register("groundedness", GroundednessScorer)
 ScorerFactory.register("faithfulness", FaithfulnessScorer)

@@ -18,7 +18,6 @@ async_session_factory = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 @pytest.fixture(scope="session")
 def event_loop() -> AsyncGenerator[asyncio.AbstractEventLoop, None]:
-    """Provides a session-scoped event loop for async tests."""
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()
@@ -26,7 +25,6 @@ def event_loop() -> AsyncGenerator[asyncio.AbstractEventLoop, None]:
 
 @pytest.fixture(autouse=True)
 async def init_db() -> AsyncGenerator[None, None]:
-    """Generates all database schema tables in the target in-memory connection before running tests."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
@@ -36,7 +34,6 @@ async def init_db() -> AsyncGenerator[None, None]:
 
 @pytest.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Generates an isolated database session context."""
     async with async_session_factory() as session:
         yield session
         await session.rollback()
@@ -44,7 +41,6 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Generates a test client wrapped within the FastAPI application lifespan context."""
     from app.core.jwt import create_access_token
     from app.core.password import hash_password
     from app.db.models.user import User

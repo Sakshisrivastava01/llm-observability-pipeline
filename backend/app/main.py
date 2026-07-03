@@ -13,7 +13,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Establishes connection pool client lifespans to prevent socket leaks."""
     app.state.http_client = httpx.AsyncClient()
     yield
     await app.state.http_client.aclose()
@@ -46,7 +45,6 @@ app.include_router(api_router, prefix="/api/v1")
 async def sqlalchemy_exception_handler(
     request: Request, exc: SQLAlchemyError
 ) -> Response:
-    """Catches database-related exceptions globally, returning 400 Bad Request."""
     return JSONResponse(
         status_code=400,
         content={"detail": f"Database integrity error: {str(exc)}"},
@@ -55,7 +53,6 @@ async def sqlalchemy_exception_handler(
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception) -> Response:
-    """Catches all unhandled generic exceptions, returning 500 Internal Server Error."""
     return JSONResponse(
         status_code=500,
         content={"detail": f"Internal server error: {str(exc)}"},
@@ -64,5 +61,4 @@ async def generic_exception_handler(request: Request, exc: Exception) -> Respons
 
 @app.get("/health")
 async def health_status() -> dict[str, str]:
-    """Top-level health check endpoint."""
     return {"status": "healthy"}

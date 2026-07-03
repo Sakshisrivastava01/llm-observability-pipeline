@@ -1,14 +1,5 @@
-"""add_performance_indexes
-
-Revision ID: d3108d6f3d34
-Revises: e0f768643229
-Create Date: 2026-06-30 16:39:53.758851
-
-"""
-
 from alembic import op
 
-# revision identifiers, used by Alembic.
 revision = "d3108d6f3d34"
 down_revision = "e0f768643229"
 branch_labels = None

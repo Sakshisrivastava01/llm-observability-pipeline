@@ -1,15 +1,6 @@
-"""initial
-
-Revision ID: e962b1b36952
-Revises:
-Create Date: 2026-06-28 12:00:00.000000
-
-"""
-
 import sqlalchemy as sa
 from alembic import op
 
-# revision identifiers, used by Alembic.
 revision = "e962b1b36952"
 down_revision = None
 branch_labels = None
@@ -17,7 +8,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # 1. Create trace table
     op.create_table(
         "trace",
         sa.Column("id", sa.UUID(), nullable=False),
@@ -32,7 +22,6 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_trace_trace_id"), "trace", ["trace_id"], unique=True)
 
-    # 2. Create span table
     op.create_table(
         "span",
         sa.Column("id", sa.UUID(), nullable=False),
@@ -58,7 +47,6 @@ def upgrade() -> None:
     op.create_index(op.f("ix_span_span_id"), "span", ["span_id"], unique=True)
     op.create_index(op.f("ix_span_trace_id"), "span", ["trace_id"], unique=False)
 
-    # 3. Create evaluation table
     op.create_table(
         "evaluation",
         sa.Column("id", sa.UUID(), nullable=False),
@@ -84,7 +72,6 @@ def upgrade() -> None:
         op.f("ix_evaluation_trace_id"), "evaluation", ["trace_id"], unique=False
     )
 
-    # 4. Create model_pricing table
     op.create_table(
         "model_pricing",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
@@ -110,7 +97,6 @@ def upgrade() -> None:
         unique=True,
     )
 
-    # 5. Create alert table
     op.create_table(
         "alert",
         sa.Column("id", sa.UUID(), nullable=False),

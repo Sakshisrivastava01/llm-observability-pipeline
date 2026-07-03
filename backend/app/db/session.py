@@ -29,7 +29,6 @@ async_session_factory = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Generates an async database session context managed with safe commits and rollbacks."""
     async with async_session_factory() as session:
         try:
             yield session

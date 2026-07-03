@@ -11,8 +11,6 @@ if TYPE_CHECKING:
 
 
 class Evaluation(Base):
-    """Database model mapping evaluation metrics (accuracy, similarity, groundedness)."""
-
     __tablename__ = "evaluation"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -41,5 +39,4 @@ class Evaluation(Base):
         nullable=False,
     )
 
-    # Relationships
     trace: Mapped["Trace"] = relationship("Trace", back_populates="evaluations")

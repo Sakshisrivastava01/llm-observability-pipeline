@@ -7,8 +7,6 @@ from app.sdk.collector import TelemetryCollector
 
 
 class TraceContext:
-    """Async context manager for logging execution traces."""
-
     def __init__(
         self,
         name: str,
@@ -58,14 +56,11 @@ class TraceContext:
             "spans": spans,
         }
 
-        # Transmit telemetry asynchronously to endpoint
         await TelemetryCollector.submit_trace(payload)
         TelemetrySDK.clear_context()
 
 
 class SpanContext:
-    """Async context manager for logging child execution spans (e.g. LLM call steps)."""
-
     def __init__(
         self,
         name: str,
@@ -93,7 +88,6 @@ class SpanContext:
     def set_usage(
         self, prompt_tokens: int, completion_tokens: int, cost: float = 0.0
     ) -> None:
-        """Sets prompt token usage, completion token usage, and calculated cost metrics."""
         self.prompt_tokens = prompt_tokens
         self.completion_tokens = completion_tokens
         self.total_tokens = prompt_tokens + completion_tokens

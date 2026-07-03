@@ -10,17 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TelemetryService:
-    """Orchestrates ingestion of traces, saves spans, and runs trigger threshold alerts."""
-
     def __init__(self, db: AsyncSession):
         self.trace_repo = TraceRepository(db)
         self.alert_repo = AlertRepository(db)
 
     async def record_trace(self, data: dict[str, Any]) -> Trace:
-        """Saves telemetry payload and checks if latency or token cost rules trigger new alerts."""
         trace = await self.trace_repo.create(data)
 
-        # Parse duration metrics
         start = (
             datetime.fromisoformat(data["start_time"])
             if isinstance(data["start_time"], str)
@@ -33,7 +29,6 @@ class TelemetryService:
         )
         duration = (end - start).total_seconds()
 
-        # Latency operational alerts rules
         if duration > 5.0:
             severity = "critical" if duration > 10.0 else "warning"
             alert = Alert(
@@ -54,7 +49,6 @@ class TelemetryService:
                 trace_id=trace.trace_id,
             )
 
-        # Cost limit alerts rules
         total_cost = sum(float(span.get("cost", 0.0)) for span in data.get("spans", []))
         if total_cost > 0.05:
             alert = Alert(

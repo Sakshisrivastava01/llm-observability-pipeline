@@ -8,8 +8,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class PasswordResetToken(Base):
-    """Database model mapping user password reset OTPs."""
-
     __tablename__ = "password_reset_tokens"
 
     id: Mapped[uuid.UUID] = mapped_column(

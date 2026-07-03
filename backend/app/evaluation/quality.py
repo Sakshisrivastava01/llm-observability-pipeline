@@ -4,8 +4,6 @@ from app.evaluation.base import BaseScorer, ScorerFactory, ScorerResult
 
 
 class QualityScorer(BaseScorer):
-    """Aggregates hallucination, groundedness, faithfulness, and similarity scores into an overall Quality index."""
-
     async def score(
         self,
         output: str,

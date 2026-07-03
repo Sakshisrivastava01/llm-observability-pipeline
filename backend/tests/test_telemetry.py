@@ -6,7 +6,6 @@ from sqlalchemy import select
 
 @pytest.mark.anyio
 async def test_trace_and_span_creation(db_session) -> None:
-    """Verifies that traces and nested spans are successfully persisted to the database."""
     repo = TraceRepository(db_session)
     payload = {
         "trace_id": "tr-test-99",
@@ -34,7 +33,6 @@ async def test_trace_and_span_creation(db_session) -> None:
     trace = await repo.create(payload)
     assert trace.trace_id == "tr-test-99"
 
-    # Query to verify in-memory persistence
     from sqlalchemy.orm import selectinload
 
     stmt = (

@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def test_registration_success(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """Verifies that a user can register successfully."""
     payload = {
         "email": "register@test.com",
         "password": "password123",
@@ -35,7 +34,6 @@ async def test_registration_success(
 async def test_duplicate_registration_failure(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """Verifies duplicate email registration returns 400."""
     user = User(
         email="dup@test.com",
         name="Dup User",
@@ -56,7 +54,6 @@ async def test_duplicate_registration_failure(
 
 @pytest.mark.anyio
 async def test_login_success(client: AsyncClient, db_session: AsyncSession) -> None:
-    """Verifies successful login returns token and user info."""
     user = User(
         email="login@test.com",
         name="Login User",
@@ -80,7 +77,6 @@ async def test_login_success(client: AsyncClient, db_session: AsyncSession) -> N
 
 @pytest.mark.anyio
 async def test_login_failure(client: AsyncClient, db_session: AsyncSession) -> None:
-    """Verifies failed login with bad password or email."""
     payload = {
         "email": "nonexistent@test.com",
         "password": "password123",
@@ -92,7 +88,6 @@ async def test_login_failure(client: AsyncClient, db_session: AsyncSession) -> N
 
 @pytest.mark.anyio
 async def test_jwt_validation_success_and_failure(client: AsyncClient) -> None:
-    """Verifies JWT validation for protected endpoints."""
     response = await client.get("/api/v1/auth/me")
     assert response.status_code == 200
 
@@ -108,7 +103,6 @@ async def test_jwt_validation_success_and_failure(client: AsyncClient) -> None:
 async def test_forgot_password_flow(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """Verifies the forgot password and email trigger flow."""
     user = User(
         email="forgot@test.com",
         name="Forgot User",
@@ -140,7 +134,6 @@ async def test_forgot_password_flow(
 async def test_reset_password_success(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """Verifies reset password with correct OTP."""
     user = User(
         email="reset@test.com",
         name="Reset User",
@@ -174,7 +167,6 @@ async def test_reset_password_success(
 async def test_reset_password_invalid_otp(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """Verifies reset password fails with incorrect OTP."""
     user = User(
         email="reset_fail@test.com",
         name="Reset User",
@@ -205,7 +197,6 @@ async def test_reset_password_invalid_otp(
 async def test_reset_password_expired_otp(
     client: AsyncClient, db_session: AsyncSession
 ) -> None:
-    """Verifies reset password fails with expired OTP."""
     user = User(
         email="reset_exp@test.com",
         name="Reset User",

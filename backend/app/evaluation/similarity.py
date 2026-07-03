@@ -4,8 +4,6 @@ from app.evaluation.base import BaseScorer, ScorerResult
 
 
 class SemanticSimilarityScorer(BaseScorer):
-    """Calculates semantic similarity via lightweight word-level Jaccard overlap."""
-
     async def score(
         self,
         output: str,

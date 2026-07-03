@@ -4,8 +4,6 @@ from app.evaluation.base import LLMBaseScorer, ScorerResult
 
 
 class FaithfulnessScorer(LLMBaseScorer):
-    """Evaluates if the response is faithful to the retrieval context."""
-
     async def score(
         self,
         output: str,

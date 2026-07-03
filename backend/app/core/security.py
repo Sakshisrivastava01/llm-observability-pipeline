@@ -13,7 +13,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 
 def verify_token(token: str) -> dict[str, Any]:
-    """Verifies and decodes a JWT token. Raises HTTPException if invalid/expired."""
     try:
         payload = decode_access_token(token)
         return payload
@@ -34,7 +33,6 @@ def verify_token(token: str) -> dict[str, Any]:
 async def get_current_user(
     db: AsyncSession = Depends(get_db), token: str | None = Depends(oauth2_scheme)
 ) -> User:
-    """FastAPI dependency that extracts the user from JWT bearer token."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",

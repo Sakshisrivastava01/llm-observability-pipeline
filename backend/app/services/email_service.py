@@ -5,7 +5,6 @@ from sendgrid.helpers.mail import Mail
 
 
 def send_password_reset_email(to_email: str, otp: str) -> bool:
-    """Sends a password reset email using SendGrid with the OTP and reset link."""
     if not settings.SENDGRID_API_KEY:
         logger.warning(
             "SENDGRID_API_KEY not configured. Password reset email skipped.",

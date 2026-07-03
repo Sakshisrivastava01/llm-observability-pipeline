@@ -4,10 +4,7 @@ from sqlalchemy import select
 
 
 class PricingRepository(BaseRepository):
-    """Handles CRUD operations for Model Pricing profiles."""
-
     async def create(self, pricing: ModelPricing) -> ModelPricing:
-        """Persists a new pricing profile in a database transaction block."""
         try:
             self.db.add(pricing)
             await self.db.flush()
@@ -17,7 +14,6 @@ class PricingRepository(BaseRepository):
             raise
 
     async def get_by_model(self, model_name: str) -> ModelPricing | None:
-        """Retrieves the active pricing profile for a specific model name."""
         stmt = select(ModelPricing).where(
             ModelPricing.model_name == model_name, ModelPricing.active.is_(True)
         )
@@ -25,7 +21,6 @@ class PricingRepository(BaseRepository):
         return result.scalars().first()
 
     async def get_all(self) -> list[ModelPricing]:
-        """Retrieves all registered pricing profiles."""
         stmt = select(ModelPricing).order_by(ModelPricing.model_name.asc())
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
@@ -37,7 +32,6 @@ class PricingRepository(BaseRepository):
         input_price: float,
         output_price: float,
     ) -> ModelPricing:
-        """Creates or updates a model pricing profile configuration."""
         try:
             stmt = select(ModelPricing).where(ModelPricing.model_name == model_name)
             result = await self.db.execute(stmt)

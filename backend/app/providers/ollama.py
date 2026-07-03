@@ -6,8 +6,6 @@ from app.providers.base import BaseProvider, ProviderResponse
 
 
 class OllamaProvider(BaseProvider):
-    """Ollama API connector for executing local inference calls."""
-
     async def generate(
         self, model: str, prompt: str, **kwargs: Any
     ) -> ProviderResponse:
@@ -42,7 +40,6 @@ class OllamaProvider(BaseProvider):
         completion_tokens = data.get("eval_count", 0)
         total_tokens = prompt_tokens + completion_tokens
 
-        # Ollama runs locally, so token cost is 0.0
         return ProviderResponse(
             text=text,
             prompt_tokens=prompt_tokens,

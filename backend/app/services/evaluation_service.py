@@ -5,8 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class EvaluationService:
-    """Orchestrates evaluator scorer runs and records their outputs in the database."""
-
     def __init__(self, db: AsyncSession):
         self.eval_repo = EvaluationRepository(db)
 
@@ -19,7 +17,6 @@ class EvaluationService:
         reference_text: str | None = None,
         span_id: str | None = None,
     ) -> Evaluation:
-        """Resolves scorer module, executes evaluation score, and persists records in database."""
         scorer = ScorerFactory.get(scorer_name)
         res = await scorer.score(
             output=output_text, context=context_text, reference=reference_text

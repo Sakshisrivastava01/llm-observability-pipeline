@@ -7,8 +7,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class User(Base):
-    """Database model mapping authenticated dashboard users."""
-
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(

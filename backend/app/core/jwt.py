@@ -9,7 +9,6 @@ ACCESS_TOKEN_EXPIRE_HOURS = 24
 
 
 def create_access_token(email: str, expires_delta: timedelta | None = None) -> str:
-    """Creates a JWT access token containing sub, email, iat, exp."""
     now = datetime.now(timezone.utc)
     if expires_delta:
         expire = now + expires_delta
@@ -26,5 +25,4 @@ def create_access_token(email: str, expires_delta: timedelta | None = None) -> s
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    """Decodes a JWT token using PyJWT. Raises PyJWTError if invalid or expired."""
     return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[ALGORITHM])

@@ -6,8 +6,6 @@ from app.providers.base import BaseProvider, ProviderResponse
 
 
 class OpenAIProvider(BaseProvider):
-    """OpenAI API connector conforming to the BaseProvider abstraction."""
-
     async def generate(
         self, model: str, prompt: str, **kwargs: Any
     ) -> ProviderResponse:
@@ -51,7 +49,6 @@ class OpenAIProvider(BaseProvider):
         completion_tokens = usage.get("completion_tokens", 0)
         total_tokens = usage.get("total_tokens", 0)
 
-        # Standard pricing models
         input_price = 0.005 if "gpt-4" in model else 0.0015
         output_price = 0.015 if "gpt-4" in model else 0.002
         cost = (

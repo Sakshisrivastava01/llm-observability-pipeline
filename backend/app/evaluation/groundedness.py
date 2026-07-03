@@ -4,8 +4,6 @@ from app.evaluation.base import LLMBaseScorer, ScorerResult
 
 
 class GroundednessScorer(LLMBaseScorer):
-    """Evaluates if the generated claims are grounded directly in the context."""
-
     async def score(
         self,
         output: str,

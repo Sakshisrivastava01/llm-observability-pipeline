@@ -1,15 +1,6 @@
-"""add_user_table
-
-Revision ID: e0f768643229
-Revises: f3032d9e1112
-Create Date: 2026-06-30 16:22:10.939371
-
-"""
-
 import sqlalchemy as sa
 from alembic import op
 
-# revision identifiers, used by Alembic.
 revision = "e0f768643229"
 down_revision = "f3032d9e1112"
 branch_labels = None

@@ -9,6 +9,7 @@ from app.models.trace import Trace
 from app.providers import ProviderFactory
 from app.repositories.pricing_repository import PricingRepository
 from app.repositories.trace_repository import TraceRepository
+from app.routers.auth import router as auth_router
 from app.sdk.context import SpanContext, TraceContext
 from app.services.analytics_service import AnalyticsService
 from app.services.evaluation_service import EvaluationService
@@ -203,9 +204,6 @@ class DiagnosticHealthResponse(BaseModel):
     environment: str
 
 
-# --- New Integration Compatibility Schemas ---
-
-
 class LoginRequest(BaseModel):
     email: str
     password: str
@@ -324,7 +322,6 @@ class EvalRunResponse(BaseModel):
 
 @router.get("/health", response_model=HealthCheckResponse)
 async def health_check() -> dict[str, str]:
-    """Retrieves operational status of the platform API."""
     return {"status": "healthy"}
 
 
@@ -332,7 +329,6 @@ async def health_check() -> dict[str, str]:
 async def ingest_trace(
     payload: TracePayload, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    """Receives trace payloads directly from the client Telemetry SDK."""
     telemetry_service = TelemetryService(db)
     try:
         await telemetry_service.record_trace(payload.model_dump())
@@ -346,7 +342,6 @@ async def get_traces(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Queries paginated and filtered ingested traces expected by TraceExplorer."""
     import math
     from datetime import datetime, timedelta
 
@@ -392,16 +387,13 @@ async def get_traces(
         else:
             actual_models.append(m)
 
-    # Build SQL query with joined tables and filters applied at DB layer
     stmt = select(Trace).options(
         selectinload(Trace.spans), selectinload(Trace.evaluations)
     )
 
-    # Apply search filter
     if search and search.strip():
         stmt = stmt.where(Trace.trace_id.ilike(f"%{search.strip()}%"))
 
-    # Apply date filters
     if start_date:
         try:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
@@ -415,7 +407,6 @@ async def get_traces(
         except ValueError:
             pass
 
-    # Apply latency duration filters
     if min_latency_ms is not None:
         stmt = stmt.where(
             Trace.end_time - Trace.start_time >= timedelta(milliseconds=min_latency_ms)
@@ -425,13 +416,11 @@ async def get_traces(
             Trace.end_time - Trace.start_time <= timedelta(milliseconds=max_latency_ms)
         )
 
-    # Apply model filters via Spans join
     if actual_models:
         stmt = stmt.join(Trace.spans).where(
             Span.span_type == "llm", Span.model_name.in_(actual_models)
         )
 
-    # Apply evaluation score filters via Evaluations join
     if min_hall_score is not None or max_hall_score is not None:
         stmt = stmt.join(Trace.evaluations).where(
             Evaluation.metric_name == "hallucination"
@@ -441,11 +430,9 @@ async def get_traces(
         if max_hall_score is not None:
             stmt = stmt.where(Evaluation.metric_value <= max_hall_score)
 
-    # Get total count of distinct matched traces before paginating
     count_stmt = select(func.count(distinct(Trace.id))).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
-    # Retrieve paginated trace entities
     stmt = stmt.order_by(Trace.start_time.desc()).distinct()
     stmt = stmt.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(stmt)
@@ -504,7 +491,6 @@ async def get_traces(
 async def get_trace(
     trace_id: str, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    """Retrieves nested hierarchies and evaluation scores of a specific trace."""
     trace_repo = TraceRepository(db)
     trace = await trace_repo.get_by_trace_id(trace_id)
     if not trace:
@@ -556,7 +542,6 @@ async def get_trace(
 async def run_evaluation(
     req: EvaluationRequest, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    """Manually triggers evaluation scoring on a generated response output."""
     eval_service = EvaluationService(db)
     try:
         record = await eval_service.run_evaluation(
@@ -581,7 +566,6 @@ async def run_evaluation(
 async def get_evaluations(
     limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)
 ) -> list[dict[str, Any]]:
-    """Retrieves SQuAD evaluation runs history for the gate quality validation matrix."""
     return [
         {
             "dataset": "SQuAD v2.0 (Val)",
@@ -617,12 +601,10 @@ async def get_evaluations(
 async def get_analytics_kpis(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, float]:
-    """Retrieves system-wide KPI metrics formatted for frontend Overview page expectations."""
     analytics_service = AnalyticsService(db)
     raw_kpis = await analytics_service.get_kpis()
     eval_averages = await analytics_service.get_evaluation_averages()
 
-    # Convert avg_latency to ms
     avg_latency_ms = raw_kpis.get("avg_latency", 0.0) * 1000.0
     avg_hall_score = eval_averages.get("hallucination", 2.45)
 
@@ -642,7 +624,6 @@ async def get_analytics_kpis(
 async def get_model_shares(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, int]:
-    """Retrieves query distribution per LLM model."""
     analytics_service = AnalyticsService(db)
     return await analytics_service.get_model_distribution()
 
@@ -651,7 +632,6 @@ async def get_model_shares(
 async def get_regressions(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, bool]:
-    """Checks for active duration/latency regression triggers."""
     analytics_service = AnalyticsService(db)
     return await analytics_service.detect_regressions()
 
@@ -660,18 +640,15 @@ async def get_regressions(
 async def execute_inference(
     req: InferenceRequest, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    """Proxies LLM calls, tracking prompts, outputs, latency, tokens, cost, and evaluates quality."""
     pricing_repo = PricingRepository(db)
     eval_service = EvaluationService(db)
 
-    # 1. Fetch active pricing profile
     price_info = await pricing_repo.get_by_model(req.model)
     in_price = price_info.input_token_price_per_1k if price_info else 0.0015
     out_price = price_info.output_token_price_per_1k if price_info else 0.002
 
     provider = ProviderFactory.get(req.provider)
 
-    # 2. Track trace context
     async with TraceContext(
         name="proxy_inference_pipeline",
         input_data={"prompt": req.prompt},
@@ -683,7 +660,6 @@ async def execute_inference(
             model_name=req.model,
             input_data={"prompt": req.prompt},
         ) as sc:
-            # 3. Call LLM connector
             resp = await provider.generate(
                 model=req.model,
                 prompt=req.prompt,
@@ -691,7 +667,6 @@ async def execute_inference(
                 temperature=req.temperature,
             )
 
-            # 4. Calculate usage pricing
             cost = (
                 (resp.prompt_tokens * in_price) + (resp.completion_tokens * out_price)
             ) / 1000.0
@@ -701,14 +676,11 @@ async def execute_inference(
                 cost=cost,
             )
 
-            # Record generation outputs
             sc.output_data = {"response": resp.text}
             tc.output_data = {"response": resp.text}
 
-    # 5. Automatically trigger quality scores evaluations
     eval_results = []
     if req.reference_context:
-        # Run Groundedness & Hallucination Check
         for scorer in ["hallucination", "groundedness", "faithfulness"]:
             try:
                 ev = await eval_service.run_evaluation(
@@ -729,7 +701,6 @@ async def execute_inference(
                 pass
 
     if req.reference_output:
-        # Run Semantic Similarity check
         try:
             ev = await eval_service.run_evaluation(
                 trace_id=tc.trace_id,
@@ -748,7 +719,6 @@ async def execute_inference(
         except Exception:
             pass
 
-    # Run overall quality evaluation scorer
     try:
         ev = await eval_service.run_evaluation(
             trace_id=tc.trace_id,
@@ -788,8 +758,6 @@ async def get_alerts(
     page_size: int = 20,
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Retrieves all logged operational alerts wrapped with severity aggregates for Alerts page."""
-    # Optional parameters: severity list
     severities_filter = request.query_params.getlist("severity")
     actual_severities = []
     for s in severities_filter:
@@ -808,7 +776,6 @@ async def get_alerts(
     severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
 
     for a in alerts:
-        # Resolve model name from description
         model = "gpt-4o"
         desc_lower = a.description.lower()
         if "gpt-3.5-turbo" in desc_lower:
@@ -845,12 +812,11 @@ async def get_alerts(
             "baseline_value": a.threshold_value,
             "current_value": a.actual_value,
             "pct_change": pct_change,
-            "p_value": 0.0123,  # Static threshold p-value indicator
+            "p_value": 0.0123,
             "created_at": a.timestamp.isoformat(),
             "resolved": resolved,
         }
 
-        # Filter by severity
         if actual_severities and sev_upper not in [
             s.upper() for s in actual_severities
         ]:
@@ -859,7 +825,6 @@ async def get_alerts(
         items.append(alert_item)
 
     total = len(items)
-    # Paginate items
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
     paginated_items = items[start_idx:end_idx]
@@ -875,7 +840,6 @@ async def get_alerts(
 async def acknowledge_alert(
     alert_id: str, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    """Acknowledges a triggered threshold alert (for legacy compatibility)."""
     from app.repositories.alert_repository import AlertRepository
 
     repo = AlertRepository(db)
@@ -889,7 +853,6 @@ async def acknowledge_alert(
 async def resolve_alert(
     alert_id: str, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    """Resolves an alert trigger (PATCH support requested by React frontend)."""
     import uuid
 
     try:
@@ -912,7 +875,6 @@ async def resolve_alert(
 async def upsert_pricing(
     req: PricingUpsertRequest, db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    """Registers or updates token price rates for a model profile."""
     repo = PricingRepository(db)
     item = await repo.upsert_pricing(
         provider=req.provider,
@@ -930,7 +892,6 @@ async def upsert_pricing(
 
 @router.get("/pricing", response_model=list[PricingResponse])
 async def get_pricing(db: AsyncSession = Depends(get_db)) -> list[Any]:
-    """Retrieves all registered token pricing configurations."""
     repo = PricingRepository(db)
     items = await repo.get_all()
     return [
@@ -950,7 +911,6 @@ async def get_pricing(db: AsyncSession = Depends(get_db)) -> list[Any]:
 async def get_advanced_analytics(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Retrieves advanced percentiles, predictions, anomalies, and provider metrics."""
     from app.services.advanced_analytics_service import AdvancedAnalyticsService
 
     service = AdvancedAnalyticsService(db)
@@ -958,7 +918,6 @@ async def get_advanced_analytics(
     anomalies = await service.detect_anomalies()
     predictions = await service.predict_metrics()
 
-    # Query active alerts for Overview page
     stmt = (
         select(Alert)
         .where(Alert.status == "triggered")
@@ -1014,7 +973,6 @@ async def get_advanced_analytics(
 async def get_analytics_summaries(
     interval: str = "daily", db: AsyncSession = Depends(get_db)
 ) -> dict[str, Any]:
-    """Retrieves aggregated daily/weekly/monthly throughput summaries."""
     from app.services.advanced_analytics_service import AdvancedAnalyticsService
 
     service = AdvancedAnalyticsService(db)
@@ -1030,7 +988,6 @@ async def get_analytics_summaries(
 async def get_providers_comparison(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Compares and ranks OpenAI vs Ollama metrics."""
     from app.services.advanced_analytics_service import AdvancedAnalyticsService
 
     service = AdvancedAnalyticsService(db)
@@ -1039,7 +996,6 @@ async def get_providers_comparison(
 
 @router.get("/traces/export")
 async def export_traces(format: str = "csv", db: AsyncSession = Depends(get_db)) -> Any:
-    """Exports ingested traces as CSV or JSON format downloads."""
     trace_repo = TraceRepository(db)
     traces = await trace_repo.get_all(limit=1000)
     if format.lower() == "json":
@@ -1082,7 +1038,6 @@ async def export_traces(format: str = "csv", db: AsyncSession = Depends(get_db))
 async def export_evaluations(
     format: str = "csv", db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """Exports evaluations as CSV or JSON format downloads."""
     from app.services.evaluation_service import EvaluationService
 
     service = EvaluationService(db)
@@ -1138,19 +1093,16 @@ async def export_evaluations(
 async def health_diagnostics(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
-    """Retrieves connection health details of the database, OpenAI, and Ollama."""
     import httpx
     from app.core.config import settings
     from sqlalchemy import text
 
-    # 1. Database check
     try:
         await db.execute(text("SELECT 1"))
         db_status = "healthy"
     except Exception as e:
         db_status = f"error: {str(e)}"
 
-    # 2. OpenAI connectivity check
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(settings.OPENAI_API_BASE, timeout=2.0)
@@ -1158,7 +1110,6 @@ async def health_diagnostics(
     except Exception:
         openai_status = "unreachable"
 
-    # 3. Ollama check
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(settings.OLLAMA_API_BASE, timeout=2.0)
@@ -1174,13 +1125,6 @@ async def health_diagnostics(
     }
 
 
-# ==============================================================================
-# --- Compatibility Integration Endpoints ---
-# ==============================================================================
-
-
-from app.routers.auth import router as auth_router  # noqa: E402
-
 router.include_router(auth_router)
 
 
@@ -1190,7 +1134,6 @@ async def get_analytics_trends(
     days: int = 7,
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Retrieves time series aggregations for overview trend charts."""
     models_filter = request.query_params.getlist("model")
     actual_models = []
     for m in models_filter:
@@ -1288,7 +1231,6 @@ async def get_model_comparison(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Aggregates latency percentiles, errors, costs, and hall scores per model."""
     models_filter = request.query_params.getlist("model")
     actual_models = []
     for m in models_filter:
@@ -1387,7 +1329,6 @@ async def get_latency_distribution(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Retrieves histogram buckets count for latency duration ranges."""
     models_filter = request.query_params.getlist("model")
     actual_models = []
     for m in models_filter:
@@ -1447,7 +1388,6 @@ async def get_hallucination_scores(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Aggregates score distribution bucket counts for hallucination metrics."""
     models_filter = request.query_params.getlist("model")
     actual_models = []
     for m in models_filter:
@@ -1509,7 +1449,6 @@ async def get_hallucination_trend(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Calculates daily average hallucination score timelines."""
     models_filter = request.query_params.getlist("model")
     actual_models = []
     for m in models_filter:
@@ -1561,7 +1500,6 @@ async def get_worst_responses(
     limit: int = 10,
     db: AsyncSession = Depends(get_db),
 ) -> list[dict[str, Any]]:
-    """Queries top worst trace completions sorted by highest hallucination scores."""
     models_filter = request.query_params.getlist("model")
     actual_models = []
     for m in models_filter:
@@ -1613,7 +1551,6 @@ async def get_worst_responses(
 
 @router.get("/models", response_model=list[str])
 async def get_tracked_models(db: AsyncSession = Depends(get_db)) -> list[str]:
-    """Queries list of registered/active pricing models."""
     from app.models.pricing import ModelPricing
 
     stmt = select(ModelPricing.model_name).distinct()
@@ -1624,7 +1561,6 @@ async def get_tracked_models(db: AsyncSession = Depends(get_db)) -> list[str]:
     return models
 
 
-# Enforce authentication on all routes except public auth, health, and trace ingestion (POST /traces)
 exempt_paths = [
     "/auth/register",
     "/auth/login",
