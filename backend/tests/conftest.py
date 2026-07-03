@@ -45,27 +45,29 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 @pytest.fixture
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Generates a test client wrapped within the FastAPI application lifespan context."""
-    from app.core.security import get_current_user
-    from app.models.user import User
+    from app.core.jwt import create_access_token
+    from app.core.password import hash_password
+    from app.db.models.user import User
 
-    mock_user = User(
+    user = User(
         email="test@company.com",
         name="Test User",
-        hashed_password="hashed_password",
+        hashed_password=hash_password("password"),
     )
+    db_session.add(user)
+    await db_session.flush()
+
+    token = create_access_token(email=user.email)
 
     async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
         yield db_session
 
-    async def override_get_current_user() -> User:
-        return mock_user
-
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_current_user] = override_get_current_user
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
+        client.headers["Authorization"] = f"Bearer {token}"
         yield client
 
     app.dependency_overrides.clear()

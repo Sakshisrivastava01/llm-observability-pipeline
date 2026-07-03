@@ -6,7 +6,6 @@ from app.models.alert import Alert
 from app.models.evaluation import Evaluation
 from app.models.span import Span
 from app.models.trace import Trace
-from app.models.user import User
 from app.providers import ProviderFactory
 from app.repositories.pricing_repository import PricingRepository
 from app.repositories.trace_repository import TraceRepository
@@ -1141,7 +1140,7 @@ async def health_diagnostics(
 ) -> dict[str, Any]:
     """Retrieves connection health details of the database, OpenAI, and Ollama."""
     import httpx
-    from app.config import settings
+    from app.core.config import settings
     from sqlalchemy import text
 
     # 1. Database check
@@ -1180,44 +1179,9 @@ async def health_diagnostics(
 # ==============================================================================
 
 
-@router.post("/auth/login", response_model=LoginResponse)
-async def auth_login(
-    req: LoginRequest, db: AsyncSession = Depends(get_db)
-) -> dict[str, Any]:
-    """Logs in credentials and yields JWT access token."""
-    from app.core.security import create_access_token, verify_password
+from app.routers.auth import router as auth_router  # noqa: E402
 
-    stmt = select(User).where(User.email == req.email)
-    result = await db.execute(stmt)
-    user = result.scalars().first()
-    if not user or not verify_password(req.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Incorrect email or password")
-
-    token = create_access_token(data={"sub": user.email})
-    return {
-        "user": {
-            "name": user.name,
-            "email": user.email,
-        },
-        "access_token": token,
-    }
-
-
-@router.post("/auth/logout")
-async def auth_logout(
-    current_user: User = Depends(get_current_user),
-) -> dict[str, str]:
-    """Revokes active authentication credentials session."""
-    return {"status": "success"}
-
-
-@router.get("/auth/me", response_model=UserResponse)
-async def auth_me(current_user: User = Depends(get_current_user)) -> dict[str, str]:
-    """Queries profile information for the authenticated active user session."""
-    return {
-        "name": current_user.name,
-        "email": current_user.email,
-    }
+router.include_router(auth_router)
 
 
 @router.get("/analytics/trends", response_model=list[TrendItemResponse])
@@ -1660,10 +1624,19 @@ async def get_tracked_models(db: AsyncSession = Depends(get_db)) -> list[str]:
     return models
 
 
-# Enforce authentication on all routes except login, health, and trace ingestion (POST /traces)
+# Enforce authentication on all routes except public auth, health, and trace ingestion (POST /traces)
+exempt_paths = [
+    "/auth/register",
+    "/auth/login",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/health",
+    "/traces",
+]
+
 for route in router.routes:
     if isinstance(route, APIRoute):
-        if route.path not in ["/auth/login", "/health", "/traces"] or (
+        if route.path not in exempt_paths or (
             route.path == "/traces"
             and (not route.methods or "POST" not in route.methods)
         ):

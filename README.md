@@ -74,22 +74,45 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE traces (
+CREATE TABLE password_reset_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id VARCHAR(255),
-    name VARCHAR(255) NOT NULL,
-    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    end_time TIMESTAMP WITH TIME ZONE,
-    total_cost DECIMAL(10, 5) DEFAULT 0.00000,
-    status VARCHAR(50) NOT NULL
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    otp VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-
--- Note: Schema index optimizations are fully defined for high throughput queries.
-CREATE INDEX idx_trace_start_time ON traces(start_time DESC);
 ```
+
+---
+
+## Authentication & Security
+
+### Authentication Flow
+1. **User Registration:** `POST /api/v1/auth/register` creates a new user, hashes the password with `bcrypt`, and commits to the database.
+2. **User Login:** `POST /api/v1/auth/login` checks the user credentials against the database, verifies the password using `bcrypt`, and returns a JWT access token.
+3. **Protected Endpoints:** `GET /api/v1/auth/me` and other protected endpoints require an `Authorization: Bearer <token>` header, verified against the database session.
+
+### JWT Flow
+* **Algorithm:** HS256
+* **Expiration:** 24 Hours
+* **Payload Structure:**
+  ```json
+  {
+    "sub": "user@company.com",
+    "email": "user@company.com",
+    "iat": 1692234000,
+    "exp": 1692320400
+  }
+  ```
+
+### Password Reset Flow (OTP)
+1. **Request Reset:** `POST /api/v1/auth/forgot-password` generates a 6-digit OTP, deletes previous unused OTPs, stores the new OTP (expires in 15 minutes), and sends an email via **SendGrid**.
+2. **Verify & Update:** `POST /api/v1/auth/reset-password` validates the OTP and its expiration, updates the user's password with a new `bcrypt` hash, marks the OTP as used, and cleans up expired OTPs from the database.
 
 ---
 
@@ -97,7 +120,11 @@ CREATE INDEX idx_trace_start_time ON traces(start_time DESC);
 
 | Method | Route | Authorization | Description |
 | :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/auth/register` | Public | Registers a new user with email, name, password |
 | `POST` | `/api/v1/auth/login` | Public | Validates credentials and yields JWT access token |
+| `POST` | `/api/v1/auth/forgot-password` | Public | Generates a 6-digit password reset OTP and emails it |
+| `POST` | `/api/v1/auth/reset-password` | Public | Validates OTP and updates password |
+| `GET` | `/api/v1/auth/me` | Protected | Returns profile details of current authenticated user |
 | `POST` | `/api/v1/traces` | Public | Ingests telemetry logs from LLM executions |
 | `GET` | `/api/v1/traces` | Protected | Queries historical execution logs (paginated) |
 | `GET` | `/api/v1/analytics/kpis` | Protected | Returns core metrics (latency, tokens, cost aggregates) |
