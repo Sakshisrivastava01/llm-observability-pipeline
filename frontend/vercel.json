@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/v1/:path*", "destination": "https://llm-observability.onrender.com/api/v1/:path*" },
+    { "source": "/api/v1/:path*", "destination": "https://llm-observability-pipeline.onrender.com/api/v1/:path*" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
