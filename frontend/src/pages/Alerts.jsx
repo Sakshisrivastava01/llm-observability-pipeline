@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { CheckCircle2, AlertTriangle, Siren, TrendingUp } from 'lucide-react'
 import { Layout } from '@/components/layout/Layout'
 import { Card, SectionHeader, SeverityBadge, KpiCard, ErrorState } from '@/components/shared/ui'
@@ -9,79 +9,20 @@ import { alertsService } from '@/api/services'
 import { useFilterStore } from '@/store'
 import clsx from 'clsx'
 
-const ALERT_COLUMNS = [
-  { key: 'severity', label: 'Severity', width: '100px',
-    render: (v) => <SeverityBadge severity={v} /> },
-  { key: 'model', label: 'Model', width: '120px',
-    render: (v) => <span className="font-mono text-xs text-brand-300">{v}</span> },
-  { key: 'metric', label: 'Metric', width: '140px',
-    render: (v) => <span className="text-xs">{v}</span> },
-  { key: 'baseline_value', label: 'Baseline', sortable: true, align: 'right', width: '100px',
-    render: (v, row) => <span className="text-slate-400 text-xs">{formatMetricVal(v, row.metric)}</span> },
-  { key: 'current_value', label: 'Current', sortable: true, align: 'right', width: '100px',
-    render: (v, row) => (
-      <span className={clsx('text-xs font-medium', row.pct_change > 0 ? 'text-rose' : 'text-emerald')}>
-        {formatMetricVal(v, row.metric)}
-      </span>
-    ),
-  },
-  { key: 'pct_change', label: 'Δ Change', sortable: true, align: 'right', width: '90px',
-    render: (v) => (
-      <span className={clsx('text-xs font-semibold', v > 0 ? 'text-rose' : 'text-emerald')}>
-        {v > 0 ? '+' : ''}{v?.toFixed(1)}%
-      </span>
-    ),
-  },
-  { key: 'p_value', label: 'p-value', sortable: true, align: 'right', width: '90px',
-    render: (v) => (
-      <span className={clsx('font-mono text-xs', v < 0.05 ? 'text-amber' : 'text-slate-500')}>
-        {v?.toFixed(4) ?? '—'}
-      </span>
-    ),
-  },
-  { key: 'created_at', label: 'Detected', width: '130px',
-    render: (v) => <span className="text-xs text-slate-500">{v ? new Date(v).toLocaleString() : '—'}</span> },
-  { key: 'id', label: '', width: '80px',
-    render: (id, row) => !row.resolved ? (
-      <ResolveButton alertId={id} />
-    ) : (
-      <span className="text-xs text-emerald/60 flex items-center gap-1">
-        <CheckCircle2 size={11} /> Resolved
-      </span>
-    ),
-  },
-]
-
-function formatMetricVal(v, metric) {
-  if (v == null) return '—'
-  if (metric?.includes('latency')) return `${Math.round(v)}ms`
-  if (metric?.includes('cost')) return `$${v.toFixed(5)}`
-  if (metric?.includes('score')) return v.toFixed(2)
-  if (metric?.includes('rate')) return `${(v * 100).toFixed(1)}%`
-  return v.toFixed(3)
-}
-
-function ResolveButton({ alertId }) {
+function ResolveButton({ alertId, onResolve }) {
   const [resolving, setResolving] = useState(false)
-  const [resolved, setResolved] = useState(false)
 
   async function handleResolve() {
     setResolving(true)
     try {
       await alertsService.resolveAlert(alertId)
-      setResolved(true)
+      onResolve?.()
     } catch (e) {
       console.error(e)
     } finally {
       setResolving(false)
     }
   }
-
-  if (resolved) return (
-    <span className="text-xs text-emerald/60 flex items-center gap-1">
-      <CheckCircle2 size={11} /> Done
-    </span>
-  )
 
   return (
     <button
@@ -110,6 +51,58 @@ export default function Alerts() {
     () => alertsService.getAlerts(params),
     [JSON.stringify(params)]
   )
+
+  const columns = useMemo(() => [
+    { key: 'severity', label: 'Severity', width: '100px',
+      render: (v) => <SeverityBadge severity={v} /> },
+    { key: 'model', label: 'Model', width: '120px',
+      render: (v) => <span className="font-mono text-xs text-brand-300">{v}</span> },
+    { key: 'metric', label: 'Metric', width: '140px',
+      render: (v) => <span className="text-xs">{v}</span> },
+    { key: 'baseline_value', label: 'Baseline', sortable: true, align: 'right', width: '100px',
+      render: (v, row) => <span className="text-slate-400 text-xs">{formatMetricVal(v, row.metric)}</span> },
+    { key: 'current_value', label: 'Current', sortable: true, align: 'right', width: '100px',
+      render: (v, row) => (
+        <span className={clsx('text-xs font-medium', row.pct_change > 0 ? 'text-rose' : 'text-emerald')}>
+          {formatMetricVal(v, row.metric)}
+        </span>
+      ),
+    },
+    { key: 'pct_change', label: 'Δ Change', sortable: true, align: 'right', width: '90px',
+      render: (v) => (
+        <span className={clsx('text-xs font-semibold', v > 0 ? 'text-rose' : 'text-emerald')}>
+          {v > 0 ? '+' : ''}{v?.toFixed(1)}%
+        </span>
+      ),
+    },
+    { key: 'p_value', label: 'p-value', sortable: true, align: 'right', width: '90px',
+      render: (v) => (
+        <span className={clsx('font-mono text-xs', v < 0.05 ? 'text-amber' : 'text-slate-500')}>
+          {v?.toFixed(4) ?? '—'}
+        </span>
+      ),
+    },
+    { key: 'created_at', label: 'Detected', width: '130px',
+      render: (v) => <span className="text-xs text-slate-500">{v ? new Date(v).toLocaleString() : '—'}</span> },
+    { key: 'id', label: '', width: '80px',
+      render: (id, row) => !row.resolved ? (
+        <ResolveButton alertId={id} onResolve={refetch} />
+      ) : (
+        <span className="text-xs text-emerald flex items-center gap-1 font-semibold">
+          <CheckCircle2 size={13} className="text-emerald shrink-0" /> Resolved
+        </span>
+      ),
+    },
+  ], [refetch])
+
+  function formatMetricVal(v, metric) {
+    if (v == null) return '—'
+    if (metric?.includes('latency')) return `${Math.round(v)}ms`
+    if (metric?.includes('cost')) return `$${v.toFixed(5)}`
+    if (metric?.includes('score')) return v.toFixed(2)
+    if (metric?.includes('rate')) return `${(v * 100).toFixed(1)}%`
+    return v.toFixed(3)
+  }
 
   const SEVERITIES = ['all', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
   const severityColors = {
@@ -160,7 +153,7 @@ export default function Alerts() {
         </div>
 
         <DataTable
-          columns={ALERT_COLUMNS}
+          columns={columns}
           data={data?.items ?? []}
           loading={loading}
           error={error}

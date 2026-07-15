@@ -26,6 +26,7 @@ export function DataTable({
   onPageChange,
   emptyMessage = 'No records found',
   onRetry,
+  onRowClick,
   className,
 }) {
   const [sortKey, setSortKey] = useState(null)
@@ -90,7 +91,14 @@ export function DataTable({
           </thead>
           <tbody>
             {sorted.map((row, i) => (
-              <tr key={row.id || i} className="animate-fade-in">
+              <tr
+                key={row.id || i}
+                onClick={() => onRowClick?.(row)}
+                className={clsx(
+                  'animate-fade-in',
+                  onRowClick && 'cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04]'
+                )}
+              >
                 {columns.map((col) => (
                   <td key={col.key} className={clsx(col.align === 'right' && 'text-right')}>
                     {col.render ? col.render(row[col.key], row) : row[col.key] ?? '—'}

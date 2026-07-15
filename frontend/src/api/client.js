@@ -6,6 +6,9 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  paramsSerializer: {
+    indexes: null,
+  },
 })
 
 // Request interceptor — attach auth token if present
@@ -20,15 +23,41 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor — normalise errors
 apiClient.interceptors.response.use(
   (response) => response.data,
-  (error) => {
-    const message =
-      error.response?.data?.detail ||
-      error.response?.data?.message ||
-      error.message ||
-      'An unexpected error occurred'
+  async (error) => {
+    const config = error.config
+
+    // 503 Auto-retry (up to 3 times, waiting 10 seconds between attempts)
+    if (error.response?.status === 503 && config) {
+      if (!config._retry) {
+        config._retry = true
+        config._retryCount = 1
+      } else {
+        config._retryCount += 1
+      }
+
+      if (config._retryCount <= 3) {
+        console.log(`Service unavailable (503). Retrying in 10s (attempt ${config._retryCount}/3)...`)
+        await new Promise((resolve) => setTimeout(resolve, 10000))
+        return apiClient(config)
+      }
+    }
+
+    let message = 'An unexpected error occurred'
+    if (error.response?.status === 503) {
+      message = 'Service starting up, retrying in 10s...'
+    } else if (error.response?.status === 404) {
+      message = `Endpoint not found: ${config?.url || 'unknown endpoint'}`
+    } else if (error.message === 'Network Error' || !error.response) {
+      message = 'Backend is waking up, please wait...'
+    } else {
+      message =
+        error.response?.data?.detail ||
+        error.response?.data?.message ||
+        error.message ||
+        'An unexpected error occurred'
+    }
 
     const normalised = {
       status: error.response?.status,

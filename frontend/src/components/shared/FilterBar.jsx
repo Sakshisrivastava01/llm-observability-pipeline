@@ -16,7 +16,9 @@ export function FilterBar({ className }) {
     }
   }
 
-  const hasActiveFilters = selectedModels.length > 0
+  const defaultStart = format(subDays(new Date(), 7), 'yyyy-MM-dd')
+  const defaultEnd = format(new Date(), 'yyyy-MM-dd')
+  const hasActiveFilters = selectedModels.length > 0 || startDate !== defaultStart || endDate !== defaultEnd
 
   return (
     <div className={clsx('flex flex-wrap items-center gap-3', className)}>

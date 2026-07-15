@@ -3,31 +3,56 @@ import { persist } from 'zustand/middleware'
 import { subDays, format } from 'date-fns'
 
 // ─── Filter Store ────────────────────────────────────────────────────────────
-export const useFilterStore = create((set, get) => ({
-  selectedModels: [],            // [] = all models
-  startDate: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
-  endDate: format(new Date(), 'yyyy-MM-dd'),
-  availableModels: [],
+export const useFilterStore = create((set, get) => {
+  const setWithGetter = (update) => {
+    set((state) => {
+      const nextState = typeof update === 'function' ? update(state) : update
+      const merged = { ...state, ...nextState }
+      Object.defineProperty(merged, 'queryParams', {
+        get() {
+          return {
+            ...(merged.selectedModels.length ? { model: merged.selectedModels } : {}),
+            start_date: merged.startDate,
+            end_date: merged.endDate,
+          }
+        },
+        enumerable: true,
+        configurable: true,
+      })
+      return merged
+    })
+  }
 
-  setModels: (models) => set({ selectedModels: models }),
-  setDateRange: (start, end) => set({ startDate: start, endDate: end }),
-  setAvailableModels: (models) => set({ availableModels: models }),
-  resetFilters: () => set({
-    selectedModels: [],
+  const initialState = {
+    selectedModels: [],            // [] = all models
     startDate: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
-  }),
+    availableModels: [],
 
-  // Computed: query params object to spread into API calls
-  get queryParams() {
-    const s = get()
-    return {
-      ...(s.selectedModels.length ? { model: s.selectedModels } : {}),
-      start_date: s.startDate,
-      end_date: s.endDate,
-    }
-  },
-}))
+    setModels: (models) => setWithGetter({ selectedModels: models }),
+    setDateRange: (start, end) => setWithGetter({ startDate: start, endDate: end }),
+    setAvailableModels: (models) => setWithGetter({ availableModels: models }),
+    resetFilters: () => setWithGetter({
+      selectedModels: [],
+      startDate: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
+      endDate: format(new Date(), 'yyyy-MM-dd'),
+    }),
+  }
+
+  Object.defineProperty(initialState, 'queryParams', {
+    get() {
+      return {
+        ...(initialState.selectedModels.length ? { model: initialState.selectedModels } : {}),
+        start_date: initialState.startDate,
+        end_date: initialState.endDate,
+      }
+    },
+    enumerable: true,
+    configurable: true,
+  })
+
+  return initialState
+})
 
 // ─── Auth Store ───────────────────────────────────────────────────────────────
 export const useAuthStore = create(

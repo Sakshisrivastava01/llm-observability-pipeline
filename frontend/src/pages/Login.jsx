@@ -78,6 +78,11 @@ export default function Login() {
                 </button>
               </div>
             </div>
+            <div className="flex justify-end text-xs">
+              <a href="/forgot-password" className="text-brand-400 hover:text-brand-300 transition-colors">
+                Forgot password?
+              </a>
+            </div>
 
             {error && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-dim/30 border border-rose/20 text-xs text-rose">

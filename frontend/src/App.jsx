@@ -12,7 +12,8 @@ const Alerts         = lazy(() => import('@/pages/Alerts'))
 const Evaluation     = lazy(() => import('@/pages/Evaluation'))
 const ModelComparison = lazy(() => import('@/pages/ModelComparison'))
 const Settings       = lazy(() => import('@/pages/Settings'))
-const Login          = lazy(() => import('@/pages/Login'))
+const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'))
+const ResetPassword  = lazy(() => import('@/pages/ResetPassword'))
 
 // ─── Auth Guard ───────────────────────────────────────────────────────────────
 function RequireAuth({ children }) {
@@ -56,6 +57,8 @@ export default function App() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* Protected routes */}
         <Route path="/" element={<RequireAuth><Overview /></RequireAuth>} />

@@ -49,19 +49,29 @@ function SecretInput({ value, onChange, placeholder }) {
 
 export default function Settings() {
   const [saved, setSaved] = useState(false)
-  const [cfg, setCfg] = useState({
-    openaiKey: '',
-    supabaseUrl: '',
-    supabaseKey: '',
-    slackWebhook: '',
-    sendgridKey: '',
-    regressionInterval: '15',
-    hallucBatchSize: '5',
-    alertEnabled: true,
-    emailReportEnabled: false,
-    prometheusEnabled: true,
-    detectionThreshold: '0.05',
-    regressionMinChange: '10',
+  const [cfg, setCfg] = useState(() => {
+    const local = localStorage.getItem('llm_center_settings')
+    if (local) {
+      try {
+        return JSON.parse(local)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+    return {
+      openaiKey: '',
+      supabaseUrl: '',
+      supabaseKey: '',
+      slackWebhook: '',
+      sendgridKey: '',
+      regressionInterval: '15',
+      hallucBatchSize: '5',
+      alertEnabled: true,
+      emailReportEnabled: false,
+      prometheusEnabled: true,
+      detectionThreshold: '0.05',
+      regressionMinChange: '10',
+    }
   })
 
   function set(key, val) {
@@ -69,7 +79,7 @@ export default function Settings() {
   }
 
   function handleSave() {
-    // POST /api/v1/settings (placeholder)
+    localStorage.setItem('llm_center_settings', JSON.stringify(cfg))
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }

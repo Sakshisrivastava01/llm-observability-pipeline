@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Activity, DollarSign, Zap, Brain, TrendingUp } from 'lucide-react'
 import { Layout } from '@/components/layout/Layout'
 import { KpiCard, SectionHeader, Card, ErrorState } from '@/components/shared/ui'
@@ -24,18 +24,26 @@ function formatNumber(n) {
 
 export default function Overview() {
   const { queryParams } = useFilterStore()
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRefreshKey((k) => k + 1)
+    }, 60000)
+    return () => clearInterval(timer)
+  }, [])
 
   const { data: kpis, loading: kpisLoading, error: kpisError, refetch: refetchKpis } =
-    useApi(() => analyticsService.getKPIs(queryParams), [JSON.stringify(queryParams)])
+    useApi(() => analyticsService.getKPIs(queryParams), [JSON.stringify(queryParams), refreshKey])
 
   const { data: trends, loading: trendsLoading } =
-    useApi(() => analyticsService.getTrends(queryParams), [JSON.stringify(queryParams)])
+    useApi(() => analyticsService.getTrends(queryParams), [JSON.stringify(queryParams), refreshKey])
 
   const { data: models, loading: modelsLoading } =
-    useApi(() => analyticsService.getModelComparison(queryParams), [JSON.stringify(queryParams)])
+    useApi(() => analyticsService.getModelComparison(queryParams), [JSON.stringify(queryParams), refreshKey])
 
   const { data: latDist, loading: latDistLoading } =
-    useApi(() => analyticsService.getLatencyDistribution(queryParams), [JSON.stringify(queryParams)])
+    useApi(() => analyticsService.getLatencyDistribution(queryParams), [JSON.stringify(queryParams), refreshKey])
 
   const trendSeries = useMemo(() => [
     { key: 'calls', label: 'Calls', color: CHART_COLORS.brand },
@@ -135,15 +143,15 @@ export default function Overview() {
       </div>
 
       {/* Recent Activity Summary */}
-      <RecentActivity queryParams={queryParams} />
+      <RecentActivity queryParams={queryParams} refreshKey={refreshKey} />
     </Layout>
   )
 }
 
-function RecentActivity({ queryParams }) {
+function RecentActivity({ queryParams, refreshKey }) {
   const { data, loading, error } = useApi(
     () => analyticsService.getAdvanced(queryParams),
-    [JSON.stringify(queryParams)]
+    [JSON.stringify(queryParams), refreshKey]
   )
 
   return (

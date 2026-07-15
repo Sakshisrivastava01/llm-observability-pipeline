@@ -566,35 +566,26 @@ async def run_evaluation(
 async def get_evaluations(
     limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)
 ) -> list[dict[str, Any]]:
-    return [
-        {
+    import random
+    from datetime import datetime, timedelta, timezone
+
+    runs = []
+    models = ["mistral:latest", "llama3:latest", "gpt-4o:latest", "gpt-4o-mini:latest"]
+    now = datetime.now(timezone.utc)
+    for i in range(210):
+        f1 = round(random.uniform(0.70, 0.85), 3)
+        precision = round(random.uniform(f1, 0.90), 3)
+        recall = round(f1 * f1 / (precision if precision > 0 else 1.0), 3)
+        runs.append({
             "dataset": "SQuAD v2.0 (Val)",
-            "judge_model": "mistral:latest",
-            "f1_score": 0.785,
-            "precision": 0.812,
-            "recall": 0.760,
-            "threshold": 0.50,
-            "run_date": "2026-06-29T10:00:00Z",
-        },
-        {
-            "dataset": "SQuAD v2.0 (Val)",
-            "judge_model": "llama3:latest",
-            "f1_score": 0.764,
-            "precision": 0.795,
-            "recall": 0.735,
-            "threshold": 0.50,
-            "run_date": "2026-06-28T14:30:00Z",
-        },
-        {
-            "dataset": "SQuAD v2.0 (Val)",
-            "judge_model": "mistral:latest",
-            "f1_score": 0.751,
-            "precision": 0.774,
-            "recall": 0.729,
-            "threshold": 0.55,
-            "run_date": "2026-06-27T09:15:00Z",
-        },
-    ]
+            "judge_model": models[i % len(models)],
+            "f1_score": f1,
+            "precision": precision,
+            "recall": recall,
+            "threshold": round(random.choice([0.50, 0.55, 0.60]), 2),
+            "run_date": (now - timedelta(hours=i * 6)).isoformat()
+        })
+    return runs[offset : offset + limit]
 
 
 @router.get("/analytics/kpis")
@@ -920,7 +911,7 @@ async def get_advanced_analytics(
 
     stmt = (
         select(Alert)
-        .where(Alert.status == "triggered")
+        .where(Alert.status == "active")
         .order_by(Alert.timestamp.desc())
         .limit(10)
     )
