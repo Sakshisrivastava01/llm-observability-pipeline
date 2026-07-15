@@ -12,6 +12,7 @@ const Alerts         = lazy(() => import('@/pages/Alerts'))
 const Evaluation     = lazy(() => import('@/pages/Evaluation'))
 const ModelComparison = lazy(() => import('@/pages/ModelComparison'))
 const Settings       = lazy(() => import('@/pages/Settings'))
+const Login          = lazy(() => import('@/pages/Login'))
 const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'))
 const ResetPassword  = lazy(() => import('@/pages/ResetPassword'))
 
