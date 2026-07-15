@@ -27,11 +27,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-    "https://llm-observability-pipeline.vercel.app",
-    "https://llm-observability-pipeline-ten.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:3000",
-],
+        "https://llm-observability-pipeline-ten.vercel.app",
+        "https://llm-observability-pipeline.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
