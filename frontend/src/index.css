@@ -17,6 +17,7 @@
     --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
     --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+    --card-glow: 0 25px 50px -12px rgba(0, 0, 0, 0.05), 0 0 40px rgba(59, 130, 246, 0.08);
     --scrollbar-track: #f1f5f9;
     --scrollbar-thumb: #cbd5e1;
     --scrollbar-thumb-hover: #94a3b8;
@@ -36,6 +37,7 @@
     --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4), 0 2px 6px -1px rgba(0, 0, 0, 0.2);
     --shadow-lg: 0 12px 24px -4px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+    --card-glow: 0 25px 50px -12px rgba(0, 0, 0, 0.55), 0 0 40px rgba(0, 229, 255, 0.12);
     --scrollbar-track: #0f172a;
     --scrollbar-thumb: #27272a;
     --scrollbar-thumb-hover: #3f3f46;
@@ -102,11 +104,25 @@
     border: 1px solid var(--border-color);
     border-radius: 0.75rem;
     box-shadow: var(--shadow-sm);
-    transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+    transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, transform 0.2s ease;
   }
   .card-hover:hover {
     box-shadow: var(--shadow-md);
     transform: translateY(-2px);
+  }
+
+  .login-card-premium {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 1.5rem; /* 24px */
+    box-shadow: var(--card-glow);
+    transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, transform 0.4s ease;
+    animation: float-card-anim 8s ease-in-out infinite;
+  }
+
+  /* Transition smoothly over 400ms during theme swaps */
+  body, .sidebar-theme, .form-input, .btn, .nav-item, .nav-item span, header {
+    transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease, box-shadow 0.4s ease, transform 0.2s ease !important;
   }
 
   /* Sidebar styling overrides */
@@ -288,4 +304,9 @@
 }
 .bell-ring:hover {
   animation: bell-ring-anim 0.8s ease-in-out;
+}
+
+@keyframes float-card-anim {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }

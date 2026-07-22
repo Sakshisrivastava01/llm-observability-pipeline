@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, AlertCircle, Activity, Cpu, Zap, Layers, Terminal } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Activity, Cpu, Zap, Layers } from 'lucide-react'
 import { useAuthStore, useUIStore } from '@/store'
 import { authService } from '@/api/services'
 import { Spinner } from '@/components/shared/ui'
@@ -9,8 +9,14 @@ import apiClient from '@/api/client'
 import clsx from 'clsx'
 
 // ─── GPU-Accelerated Neural Network Animation ────────────────────────────────
-function NeuralNetworkCanvas() {
+function NeuralNetworkCanvas({ isDark }) {
   const canvasRef = useRef(null)
+  const isDarkRef = useRef(isDark)
+
+  // Sync isDark into ref to prevent canvas resets when theme changes
+  useEffect(() => {
+    isDarkRef.current = isDark
+  }, [isDark])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -27,7 +33,7 @@ function NeuralNetworkCanvas() {
     }
     window.addEventListener('resize', handleResize)
 
-    const particleCount = 42
+    const particleCount = 45
     const particles = []
     for (let i = 0; i < particleCount; i++) {
       particles.push({
@@ -55,10 +61,34 @@ function NeuralNetworkCanvas() {
     canvas.parentElement.addEventListener('mousemove', handleMouseMove)
     canvas.parentElement.addEventListener('mouseleave', handleMouseLeave)
 
+    // Palette targets for interpolating smoothly on theme swaps (400ms duration)
+    const darkParticle = { r: 0, g: 229, b: 255, a: 0.65 }
+    const darkLine = { r: 0, g: 229, b: 255, a: 0.18 }
+    const lightParticle = { r: 37, g: 99, b: 235, a: 0.45 }
+    const lightLine = { r: 37, g: 99, b: 235, a: 0.12 }
+
+    const currP = { ...lightParticle }
+    const currL = { ...lightLine }
+
     const draw = () => {
       ctx.clearRect(0, 0, width, height)
+      const activeIsDark = isDarkRef.current
 
-      // Draw connections
+      // Interpolate colors towards targets
+      const targetP = activeIsDark ? darkParticle : lightParticle
+      const targetL = activeIsDark ? darkLine : lightLine
+
+      currP.r += (targetP.r - currP.r) * 0.08
+      currP.g += (targetP.g - currP.g) * 0.08
+      currP.b += (targetP.b - currP.b) * 0.08
+      currP.a += (targetP.a - currP.a) * 0.08
+
+      currL.r += (targetL.r - currL.r) * 0.08
+      currL.g += (targetL.g - currL.g) * 0.08
+      currL.b += (targetL.b - currL.b) * 0.08
+      currL.a += (targetL.a - currL.a) * 0.08
+
+      // Draw connection lines
       for (let i = 0; i < particleCount; i++) {
         for (let j = i + 1; j < particleCount; j++) {
           const p1 = particles[i]
@@ -66,33 +96,60 @@ function NeuralNetworkCanvas() {
           const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y)
           
           if (dist < 100) {
+            let lineAlpha = currL.a * (1 - dist / 100)
+
+            // Cursor connection lines tracking glow boost
+            if (mouse.x !== null && mouse.y !== null) {
+              const mouseDist1 = Math.hypot(p1.x - mouse.x, p1.y - mouse.y)
+              const mouseDist2 = Math.hypot(p2.x - mouse.x, p2.y - mouse.y)
+              if (mouseDist1 < 100 || mouseDist2 < 100) {
+                lineAlpha = Math.min(0.42, lineAlpha * 1.8)
+              }
+            }
+
             ctx.beginPath()
             ctx.moveTo(p1.x, p1.y)
             ctx.lineTo(p2.x, p2.y)
-            ctx.strokeStyle = `rgba(100, 112, 243, ${0.06 * (1 - dist / 100)})`
+            ctx.strokeStyle = `rgba(${Math.round(currL.r)}, ${Math.round(currL.g)}, ${Math.round(currL.b)}, ${lineAlpha})`
             ctx.lineWidth = 0.8
             ctx.stroke()
           }
         }
       }
 
-      // Mouse connection lines
+      // Mouse connection particles
       if (mouse.x !== null && mouse.y !== null) {
         particles.forEach((p) => {
           const dist = Math.hypot(p.x - mouse.x, p.y - mouse.y)
-          if (dist < 130) {
+          if (dist < 100) {
             ctx.beginPath()
             ctx.moveTo(p.x, p.y)
             ctx.lineTo(mouse.x, mouse.y)
-            ctx.strokeStyle = `rgba(100, 112, 243, ${0.1 * (1 - dist / 130)})`
-            ctx.lineWidth = 1
+            ctx.strokeStyle = `rgba(${Math.round(currL.r)}, ${Math.round(currL.g)}, ${Math.round(currL.b)}, ${currL.a * (1 - dist / 100) * 1.5})`
+            ctx.lineWidth = 1.0
             ctx.stroke()
           }
         })
       }
 
-      // Draw & Update particles
+      // Update & Draw particles
       particles.forEach((p) => {
+        let activeRadius = p.radius
+        let activeAlpha = currP.a
+
+        // Cursor push & glow scale interaction
+        if (mouse.x !== null && mouse.y !== null) {
+          const dist = Math.hypot(p.x - mouse.x, p.y - mouse.y)
+          if (dist < 100) {
+            const force = (100 - dist) / 100
+            const angle = Math.atan2(p.y - mouse.y, p.x - mouse.x)
+            p.x += Math.cos(angle) * force * 1.4
+            p.y += Math.sin(angle) * force * 1.4
+            activeRadius += force * 2.0
+            activeAlpha = Math.min(1.0, currP.a + force * 0.4)
+          }
+        }
+
         p.x += p.vx
         p.y += p.vy
         p.phase += p.speed
@@ -100,11 +157,11 @@ function NeuralNetworkCanvas() {
         if (p.x < 0 || p.x > width) p.vx *= -1
         if (p.y < 0 || p.y > height) p.vy *= -1
 
-        const pulsedRadius = p.radius + Math.sin(p.phase) * 0.5
+        const pulsedRadius = activeRadius + Math.sin(p.phase) * 0.5
 
         ctx.beginPath()
         ctx.arc(p.x, p.y, pulsedRadius, 0, Math.PI * 2)
-        ctx.fillStyle = 'rgba(100, 112, 243, 0.22)'
+        ctx.fillStyle = `rgba(${Math.round(currP.r)}, ${Math.round(currP.g)}, ${Math.round(currP.b)}, ${activeAlpha})`
         ctx.fill()
       })
 
@@ -124,7 +181,7 @@ function NeuralNetworkCanvas() {
   }, [])
 
   return (
-    <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-50 z-0" />
+    <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-45 z-0" />
   )
 }
 
@@ -144,14 +201,14 @@ function FloatingInput({ label, type, value, onChange, required, autoComplete, r
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         className={clsx(
-          "form-input w-full pt-6 pb-2.5 px-3 block transition-all duration-200 bg-white/40 dark:bg-zinc-950/20 border-slate-200 dark:border-zinc-800",
+          "form-input w-full pt-6 pb-2.5 px-3 block transition-all duration-300 bg-white/40 dark:bg-zinc-950/20 border-slate-200 dark:border-zinc-800",
           focused ? "border-brand-500 ring-2 ring-brand-500/10 shadow-sm" : "border-slate-200 dark:border-zinc-800"
         )}
         placeholder=""
       />
       <label
         className={clsx(
-          "absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-200 origin-left text-xs font-semibold select-none",
+          "absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none transition-all duration-300 origin-left text-xs font-semibold select-none",
           isFloating
             ? "text-[10px] text-brand-600 dark:text-brand-400 translate-y-[-18px]"
             : "text-slate-400 dark:text-slate-500"
@@ -214,14 +271,22 @@ const slideInItem = {
 export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
+  const { theme } = useUIStore()
+  const isDark = theme === 'dark'
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [shake, setShake] = useState(false)
 
-  // Backend Wake status pinger
+  // Validation Shake State on form inputs only
+  const [shakeInputs, setShakeInputs] = useState(false)
+
+  // Logo spring entrance done checker
+  const [logoEntranceDone, setLogoEntranceDone] = useState(false)
+
+  // Backend Wake status checking pinger
   const [backendStatus, setBackendStatus] = useState('checking') // 'checking' | 'waking' | 'online'
   const [countdown, setCountdown] = useState(5)
 
@@ -284,8 +349,8 @@ export default function Login() {
     } catch (err) {
       const errMsg = err.message || 'Invalid credentials'
       setError(errMsg)
-      setShake(true)
-      setTimeout(() => setShake(false), 500)
+      setShakeInputs(true)
+      setTimeout(() => setShakeInputs(false), 500)
       useUIStore.getState().addNotification({
         title: 'Login Failure',
         message: errMsg,
@@ -297,23 +362,44 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen w-full flex bg-slate-50 dark:bg-surface-900 overflow-hidden relative transition-colors duration-350">
+    <div className="min-h-screen w-full flex bg-slate-50 dark:bg-surface-900 overflow-hidden relative">
       
+      {/* Blurred background circle elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
+        <div className="absolute top-[10%] left-[10%] w-[400px] h-[400px] rounded-full bg-blue-400/10 dark:bg-blue-600/10 blur-[120px] transition-colors duration-1000" />
+        <div className="absolute bottom-[10%] right-[10%] w-[450px] h-[450px] rounded-full bg-indigo-300/10 dark:bg-purple-600/5 blur-[135px] transition-colors duration-1000" />
+        <div className="absolute top-[40%] left-[40%] w-[300px] h-[300px] rounded-full bg-slate-200/10 dark:bg-cyan-500/10 blur-[100px] transition-colors duration-1000" />
+      </div>
+
       {/* ─── LEFT PANEL (Enterprise Branding) ────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[55%] flex-col justify-between p-12 bg-slate-100/30 dark:bg-zinc-950/20 border-r border-slate-200/50 dark:border-zinc-800/40 relative overflow-hidden select-none">
-        <NeuralNetworkCanvas />
+      <div className="hidden lg:flex lg:w-[55%] flex-col justify-between p-12 bg-slate-100/30 dark:bg-zinc-950/20 border-r border-slate-200/50 dark:border-zinc-800/40 relative overflow-hidden select-none z-10">
+        <NeuralNetworkCanvas isDark={isDark} />
 
         {/* Top Header branding */}
-        <div className="flex items-center gap-2 relative z-10">
+        <div className="flex items-center gap-2.5 relative z-10">
           <motion.img
             src="/Project_logo.png"
             className="w-7 h-7 object-contain rounded-md"
             alt="Project Logo"
-            whileHover={{ scale: 1.08, rotate: 2, filter: 'drop-shadow(0 0 8px rgba(100,112,243,0.4))' }}
-            animate={{ scale: [1, 1.03, 1] }}
-            transition={{
-              animate: { repeat: Infinity, duration: 5, ease: 'easeInOut' },
-              whileHover: { type: 'spring', stiffness: 400, damping: 10 }
+            initial={{ opacity: 0, scale: 0.8, rotate: -8 }}
+            animate={logoEntranceDone ? {
+              scale: [1, 1.03, 1],
+              rotate: 0,
+              opacity: 1
+            } : {
+              scale: 1,
+              rotate: 0,
+              opacity: 1
+            }}
+            whileHover={{ scale: 1.08, filter: 'drop-shadow(0 0 12px rgba(0, 229, 255, 0.55))' }}
+            onAnimationComplete={() => setLogoEntranceDone(true)}
+            transition={logoEntranceDone ? {
+              scale: { repeat: Infinity, duration: 6, ease: 'easeInOut' }
+            } : {
+              type: 'spring',
+              stiffness: 120,
+              damping: 14,
+              mass: 0.9
             }}
           />
           <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-widest leading-none">Observe</span>
@@ -347,10 +433,16 @@ export default function Login() {
               <motion.div
                 key={title}
                 variants={slideInItem}
-                whileHover={{ y: -2, scale: 1.01, borderColor: 'rgba(100,112,243,0.4)' }}
-                className="p-4 rounded-xl border border-slate-200/50 dark:border-zinc-800 bg-white/40 dark:bg-zinc-900/30 backdrop-blur-sm flex gap-3 text-left transition-all duration-200 hover:shadow-sm"
+                whileHover={{
+                  y: -8,
+                  scale: 1.02,
+                  borderColor: isDark ? 'rgba(0, 229, 255, 0.45)' : 'rgba(37, 99, 235, 0.45)',
+                  boxShadow: 'var(--shadow-md)',
+                  background: isDark ? 'linear-gradient(135deg, rgba(24,24,27,0.85) 0%, rgba(24,24,27,0.7) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.55) 100%)'
+                }}
+                className="p-4 rounded-xl border border-slate-200/55 dark:border-zinc-800 bg-white/40 dark:bg-zinc-900/30 backdrop-blur-sm flex gap-3 text-left transition-all duration-350 group"
               >
-                <div className="p-2 h-fit rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 shrink-0">
+                <div className="p-2 h-fit rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 shrink-0 transition-transform duration-300 group-hover:rotate-5">
                   <Icon size={15} />
                 </div>
                 <div>
@@ -383,20 +475,14 @@ export default function Login() {
 
         <motion.div
           initial={{ opacity: 0, y: 30, scale: 0.94 }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: 1,
-            x: shake ? [-10, 10, -10, 10, -5, 5, 0] : 0
-          }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{
             type: 'spring',
             stiffness: 100,
             damping: 15,
-            mass: 0.8,
-            x: { duration: 0.45 }
+            mass: 0.8
           }}
-          className="w-full max-w-sm rounded-3xl p-8 bg-white/70 dark:bg-zinc-900/60 backdrop-blur-md border border-slate-200/50 dark:border-zinc-800/40 shadow-2xl"
+          className="w-full max-w-sm login-card-premium p-8 bg-white/70 dark:bg-zinc-900/60 backdrop-blur-md border border-slate-200/50 dark:border-zinc-800/40 relative"
         >
           {/* Form Header */}
           <div className="mb-6">
@@ -431,45 +517,51 @@ export default function Login() {
           </AnimatePresence>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <FloatingInput
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-            
-            <FloatingInput
-              label="Password"
-              type={showPw ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              rightAction={
-                <button
-                  type="button"
-                  onClick={() => setShowPw((s) => !s)}
-                  className="p-1 rounded-md text-slate-400 hover:text-slate-200 focus:outline-none transition-colors"
-                >
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                      key={showPw ? 'hide' : 'show'}
-                      initial={{ opacity: 0, scale: 0.8, rotate: -45 }}
-                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                      exit={{ opacity: 0, scale: 0.8, rotate: 45 }}
-                      transition={{ duration: 0.15 }}
-                    >
-                      {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </motion.div>
-                  </AnimatePresence>
-                </button>
-              }
-            />
+          <form onSubmit={handleSubmit}>
+            <motion.div
+              animate={shakeInputs ? { x: [-10, 10, -10, 10, -5, 5, 0] } : {}}
+              transition={{ duration: 0.45 }}
+              className="space-y-4"
+            >
+              <FloatingInput
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+              
+              <FloatingInput
+                label="Password"
+                type={showPw ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                rightAction={
+                  <button
+                    type="button"
+                    onClick={() => setShowPw((s) => !s)}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-200 focus:outline-none transition-colors"
+                  >
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.div
+                        key={showPw ? 'hide' : 'show'}
+                        initial={{ opacity: 0, scale: 0.8, rotate: -45 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 0.8, rotate: 45 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </motion.div>
+                    </AnimatePresence>
+                  </button>
+                }
+              />
+            </motion.div>
 
-            <div className="flex justify-end text-xs pt-1">
+            <div className="flex justify-end text-xs pt-3">
               <a
                 href="/forgot-password"
                 className="text-brand-600 dark:text-brand-400 font-semibold transition-colors duration-150 hover:text-brand-500 flex items-center gap-0.5 group"
@@ -480,7 +572,7 @@ export default function Login() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-dim/30 border border-rose/20 text-[10px] text-rose font-medium leading-relaxed">
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-rose-dim/30 border border-rose/20 text-[10px] text-rose font-medium leading-relaxed mt-4">
                 <AlertCircle size={13} className="shrink-0" />
                 <span>{error}</span>
               </div>
@@ -489,12 +581,13 @@ export default function Login() {
             <motion.button
               type="submit"
               disabled={loading || !email || !password}
-              whileHover={{ scale: 1.02, boxShadow: 'var(--shadow-md)' }}
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="btn-primary w-full justify-center h-11 font-bold text-sm tracking-wide disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-6"
+              className="w-full justify-center h-11 font-bold text-sm tracking-wide disabled:opacity-50 disabled:cursor-not-allowed transition-all mt-6 text-white rounded-lg shadow-sm hover:shadow-md bg-gradient-to-r from-brand-600 via-cyan-500 to-brand-600 bg-[length:200%_auto] hover:bg-[right_center]"
+              style={{ transition: 'background-position 0.5s ease, transform 0.15s ease' }}
             >
               {loading ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center gap-2">
                   <Spinner size={16} className="text-white animate-spin" />
                   <span>Signing in...</span>
                 </div>
@@ -504,18 +597,6 @@ export default function Login() {
             </motion.button>
           </form>
         </motion.div>
-
-        {/* Badges Footer */}
-        <div className="mt-8 flex flex-col items-center gap-3 select-none">
-          <p className="text-[10px] text-slate-500 font-semibold tracking-wider uppercase">Powered By</p>
-          <div className="flex flex-wrap items-center justify-center gap-2 max-w-sm">
-            <span className="px-2.5 py-0.5 rounded-full border text-[9px] font-bold bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20">FastAPI</span>
-            <span className="px-2.5 py-0.5 rounded-full border text-[9px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">OpenAI</span>
-            <span className="px-2.5 py-0.5 rounded-full border text-[9px] font-bold bg-orange-500/10 text-orange-600 dark:text-orange-300 border-orange-500/20">Ollama</span>
-            <span className="px-2.5 py-0.5 rounded-full border text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">PostgreSQL</span>
-            <span className="px-2.5 py-0.5 rounded-full border text-[9px] font-bold bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20">Docker</span>
-          </div>
-        </div>
       </div>
 
     </div>
