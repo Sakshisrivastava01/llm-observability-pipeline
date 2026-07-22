@@ -2,6 +2,7 @@ import asyncio
 import random
 from datetime import datetime, timedelta, timezone
 
+from app.core.password import hash_password
 from app.db.models.user import User
 from app.db.session import async_session_factory
 from app.models.alert import Alert
@@ -10,7 +11,6 @@ from app.models.pricing import ModelPricing
 from app.models.span import Span
 from app.models.trace import Trace
 from sqlalchemy import delete
-from app.core.password import hash_password
 
 
 async def seed_data() -> None:
@@ -66,7 +66,7 @@ async def seed_data() -> None:
             email="sakshisrivastava200306@gmail.com",
             name="Sakshi Srivastava",
             hashed_password=hash_password("Sakshi@2024"),
-            is_active=True
+            is_active=True,
         )
         db.add(default_user)
         await db.commit()
@@ -75,18 +75,26 @@ async def seed_data() -> None:
         # 3. Seed Traces & Spans
         now = datetime.now(timezone.utc)
         models_list = ["gpt-4o", "gpt-4o-mini", "mistral", "llama3"]
-        trace_names = ["chat_completion_pipeline", "rag_retrieval_flow", "agent_planner_cycle"]
+        trace_names = [
+            "chat_completion_pipeline",
+            "rag_retrieval_flow",
+            "agent_planner_cycle",
+        ]
         severities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
 
         print("Generating 220 traces, spans, evaluations, and alerts...")
+        traces_to_add = []
+        spans_to_add = []
+        evals_to_add = []
+        alerts_to_add = []
+
         for i in range(1, 221):
             t_id = f"tr-{i}"
-            t_name = models_list[i % len(models_list)]
             model = models_list[i % len(models_list)]
             latency = round(random.uniform(0.1, 6.5), 2)
             p_tok = random.randint(100, 1000)
             c_tok = random.randint(50, 800)
-            
+
             # calculate pricing
             cost = 0.0
             if model == "gpt-4o":
@@ -103,12 +111,15 @@ async def seed_data() -> None:
                 name=trace_names[i % len(trace_names)],
                 start_time=start_time,
                 end_time=end_time,
-                input_data={"prompt": f"Tell me about model performance metrics for attempt {i}."},
-                output_data={"response": f"Performance metrics show latency of {latency}s and cost of ${cost:.6f} USD."},
+                input_data={
+                    "prompt": f"Tell me about model performance metrics for attempt {i}."
+                },
+                output_data={
+                    "response": f"Performance metrics show latency of {latency}s and cost of ${cost:.6f} USD."
+                },
                 custom_metadata={"environment": "production"},
             )
-            db.add(trace)
-            await db.flush()
+            traces_to_add.append(trace)
 
             # Insert Span
             span_id = f"sp-{i}"
@@ -119,8 +130,12 @@ async def seed_data() -> None:
                 span_type="llm",
                 start_time=start_time,
                 end_time=end_time,
-                input_data={"prompt": f"Tell me about model performance metrics for attempt {i}."},
-                output_data={"response": f"Performance metrics show latency of {latency}s and cost of ${cost:.6f} USD."},
+                input_data={
+                    "prompt": f"Tell me about model performance metrics for attempt {i}."
+                },
+                output_data={
+                    "response": f"Performance metrics show latency of {latency}s and cost of ${cost:.6f} USD."
+                },
                 model_name=model,
                 prompt_tokens=p_tok,
                 completion_tokens=c_tok,
@@ -128,8 +143,7 @@ async def seed_data() -> None:
                 cost=cost,
                 custom_metadata={},
             )
-            db.add(span)
-            await db.flush()
+            spans_to_add.append(span)
 
             # Insert Evaluations linked to trace
             evals = [
@@ -139,7 +153,9 @@ async def seed_data() -> None:
                     metric_name="hallucination",
                     metric_value=round(random.uniform(0.0, 5.0), 2),
                     status="success",
-                    feedback="Detected hallucinated claims." if random.choice([True, False]) else "Claim verification passed.",
+                    feedback="Detected hallucinated claims."
+                    if random.choice([True, False])
+                    else "Claim verification passed.",
                 ),
                 Evaluation(
                     trace_id=t_id,
@@ -170,19 +186,28 @@ async def seed_data() -> None:
                     status="success",
                 ),
             ]
-            db.add_all(evals)
+            evals_to_add.extend(evals)
 
             # Seed 220 active alerts
             alert = Alert(
                 metric_name="latency_seconds" if i % 2 == 0 else "hallucination_score",
                 threshold_value=5.0 if i % 2 == 0 else 3.5,
-                actual_value=latency if i % 2 == 0 else round(random.uniform(3.6, 5.0), 2),
+                actual_value=latency
+                if i % 2 == 0
+                else round(random.uniform(3.6, 5.0), 2),
                 severity=severities[i % len(severities)],
                 status="active",
                 description=f"Performance regression detected for model {model}. Actual value exceeded threshold.",
                 timestamp=start_time,
             )
-            db.add(alert)
+            alerts_to_add.append(alert)
+
+        db.add_all(traces_to_add)
+        db.add_all(spans_to_add)
+        await db.flush()
+
+        db.add_all(evals_to_add)
+        db.add_all(alerts_to_add)
 
         await db.commit()
         print("Database seeding completed successfully.")

@@ -17,7 +17,7 @@ from app.services.telemetry_service import TelemetryService
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
-from sqlalchemy import distinct, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
@@ -387,56 +387,69 @@ async def get_traces(
         else:
             actual_models.append(m)
 
-    stmt = select(Trace).options(
-        selectinload(Trace.spans), selectinload(Trace.evaluations)
-    )
+    id_stmt = select(Trace.id, Trace.start_time).distinct()
 
     if search and search.strip():
-        stmt = stmt.where(Trace.trace_id.ilike(f"%{search.strip()}%"))
+        id_stmt = id_stmt.where(Trace.trace_id.ilike(f"%{search.strip()}%"))
 
     if start_date:
         try:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-            stmt = stmt.where(Trace.start_time >= start_dt)
+            id_stmt = id_stmt.where(Trace.start_time >= start_dt)
         except ValueError:
             pass
     if end_date:
         try:
             end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1)
-            stmt = stmt.where(Trace.start_time < end_dt)
+            id_stmt = id_stmt.where(Trace.start_time < end_dt)
         except ValueError:
             pass
 
     if min_latency_ms is not None:
-        stmt = stmt.where(
+        id_stmt = id_stmt.where(
             Trace.end_time - Trace.start_time >= timedelta(milliseconds=min_latency_ms)
         )
     if max_latency_ms is not None:
-        stmt = stmt.where(
+        id_stmt = id_stmt.where(
             Trace.end_time - Trace.start_time <= timedelta(milliseconds=max_latency_ms)
         )
 
     if actual_models:
-        stmt = stmt.join(Trace.spans).where(
+        id_stmt = id_stmt.join(Trace.spans).where(
             Span.span_type == "llm", Span.model_name.in_(actual_models)
         )
 
     if min_hall_score is not None or max_hall_score is not None:
-        stmt = stmt.join(Trace.evaluations).where(
+        id_stmt = id_stmt.join(Trace.evaluations).where(
             Evaluation.metric_name == "hallucination"
         )
         if min_hall_score is not None:
-            stmt = stmt.where(Evaluation.metric_value >= min_hall_score)
+            id_stmt = id_stmt.where(Evaluation.metric_value >= min_hall_score)
         if max_hall_score is not None:
-            stmt = stmt.where(Evaluation.metric_value <= max_hall_score)
+            id_stmt = id_stmt.where(Evaluation.metric_value <= max_hall_score)
 
-    count_stmt = select(func.count(distinct(Trace.id))).select_from(stmt.subquery())
+    count_stmt = select(func.count()).select_from(id_stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
-    stmt = stmt.order_by(Trace.start_time.desc()).distinct()
-    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
-    result = await db.execute(stmt)
-    traces = result.scalars().all()
+    id_stmt = id_stmt.order_by(Trace.start_time.desc())
+    id_stmt = id_stmt.offset((page - 1) * page_size).limit(page_size)
+    id_result = await db.execute(id_stmt)
+    rows = id_result.all()
+    trace_ids = [row[0] for row in rows]
+
+    if trace_ids:
+        from sqlalchemy.orm import selectinload
+
+        trace_stmt = (
+            select(Trace)
+            .options(selectinload(Trace.spans), selectinload(Trace.evaluations))
+            .where(Trace.id.in_(trace_ids))
+            .order_by(Trace.start_time.desc())
+        )
+        result = await db.execute(trace_stmt)
+        traces = list(result.scalars().all())
+    else:
+        traces = []
 
     filtered = []
     for t in traces:
@@ -576,15 +589,17 @@ async def get_evaluations(
         f1 = round(random.uniform(0.70, 0.85), 3)
         precision = round(random.uniform(f1, 0.90), 3)
         recall = round(f1 * f1 / (precision if precision > 0 else 1.0), 3)
-        runs.append({
-            "dataset": "SQuAD v2.0 (Val)",
-            "judge_model": models[i % len(models)],
-            "f1_score": f1,
-            "precision": precision,
-            "recall": recall,
-            "threshold": round(random.choice([0.50, 0.55, 0.60]), 2),
-            "run_date": (now - timedelta(hours=i * 6)).isoformat()
-        })
+        runs.append(
+            {
+                "dataset": "SQuAD v2.0 (Val)",
+                "judge_model": models[i % len(models)],
+                "f1_score": f1,
+                "precision": precision,
+                "recall": recall,
+                "threshold": round(random.choice([0.50, 0.55, 0.60]), 2),
+                "run_date": (now - timedelta(hours=i * 6)).isoformat(),
+            }
+        )
     return runs[offset : offset + limit]
 
 
