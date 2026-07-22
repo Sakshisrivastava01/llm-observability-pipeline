@@ -1,223 +1,201 @@
-# Cost-Performance Observability and Monitoring Pipeline
+<p align="center">
+  <h1 align="center">Cost-Performance Observability & Monitoring Pipeline</h1>
+  <p align="center">A high-performance metrics collection, latency analysis, and operational health platform for distributed services.</p>
+</p>
 
-A high-performance monitoring and analytics platform for tracking execution metrics, costs, latency distribution, and operational health in distributed environments.
+<p align="center">
+  <a href="https://llm-observability-pipeline-ten.vercel.app">
+    <img src="https://img.shields.io/badge/Live%20Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo" />
+  </a>
+  <a href="https://llm-observability-pipeline.onrender.com/docs">
+    <img src="https://img.shields.io/badge/API%20Docs-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="API Docs" />
+  </a>
+  <a href="https://github.com/Sakshisrivastava01/llm-observability-pipeline">
+    <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Repository" />
+  </a>
+</p>
 
-## Overview
+<p align="center">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 18" />
+  <img src="https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite 5" />
+  <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11" />
+  <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
+  <img src="https://img.shields.io/badge/Tailwind--CSS-3.0-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind CSS 3.0" />
+  <img src="https://img.shields.io/badge/Docker-Supported-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
+</p>
 
-The Observability and Monitoring Pipeline is a production-ready telemetry ingestion and analytics platform designed to monitor distributed workloads in real time. Built with a decoupled, high-throughput backend and a modern web dashboard, the system automates metric collection, handles token-based utilization costing, triggers system alerts, and reports database performance statistics. Featuring secure JWT-based authentication, fine-grained access control (RLS), and sub-5ms write operations via direct PostgreSQL COPY protocols, the platform helps engineering teams track latency percentiles, compute aggregate operational costs, analyze execution failures, and maintain stable deployments.
+---
+
+## Project Overview
+
+This platform solves the critical challenge of tracking cost-to-performance efficiency for active HTTP and token-based application endpoints. In production systems, tracking granular request timing and resource costs across thousands of transactions is highly bottlenecked by database locks and ingestion overhead. This pipeline introduces an async metrics collection SDK, a high-throughput FastAPI REST API using direct PostgreSQL binary copy protocols (sub-5ms write overhead), and an interactive React dashboard. The scalable dashboard enables developers to identify latency bottlenecks, review execution costs, isolate errors, and query performance metrics within a securely authenticated (JWT and RLS protected) console.
+
+---
 
 ## Features
 
-- **Secure User Authentication**: Complete registration, login, and secure session management.
-- **JWT Authorization**: Token-based security mechanism for REST endpoints.
-- **Real-Time Dashboard**: Interactive visualization of request volumes, error rates, and system trends.
-- **Analytics**: Query interfaces for tracking latency percentiles (P50, P90, P95, P99) and daily request throughput.
-- **Request Monitoring**: Granular tracing of execution sequences, timing, and errors.
-- **Observability**: Telemetry SDK to automatically intercept execution blocks and log timing information.
-- **Performance Metrics**: Direct tracking of operational costs, latency ranges, and success rates.
-- **REST APIs**: Well-structured endpoints with standardized JSON request and response models.
-- **User Management**: Secured user profiles and password reset procedures with validation tokens.
-- **Responsive UI**: Built with dynamic layout modules to optimize desktop and browser views.
-- **Production Ready**: Fully dockerized environment configurations matching standard cloud environments.
-- **Error Handling**: Standardized HTTP exception handler middleware to prevent data leakages.
-- **Logging**: High-efficiency JSON structural logger mappings.
-- **Scalable Architecture**: Independent frontend/backend components interacting through REST interfaces.
+| Feature | Details |
+| :--- | :--- |
+| **Secure Authentication** | OAuth2-compatible password hashing via `bcrypt` and JWT session tokens. |
+| **Real-time Dashboard** | Visual metrics reporting with `Recharts` and lightweight `Zustand` store management. |
+| **Request Monitoring** | Automatic trace tracking across execution stacks with step-by-step latency mapping. |
+| **Observability SDK** | Intercepts function execution blocks to automatically capture metadata, parameters, and timings. |
+| **Operational Analytics** | Calculation of latency percentiles (P50, P90, P95, P99) and cost aggregation models. |
+| **FastAPI REST API** | Clean, modular endpoints validated through strict `Pydantic` schemas. |
+| **Database Security** | PostgreSQL 16 on Supabase with enabled Row-Level Security (RLS) policies. |
+| **High-Throughput Ingestion** | Optimized db execution using high-performance asyncpg copy protocol. |
 
-## Architecture
+---
 
-```text
-Frontend (React + Vite)
-        │
-        ▼
-REST API (FastAPI)
-        │
-        ▼
-Business Services
-        │
-        ▼
-Database Layer
-        │
-        ▼
-PostgreSQL
+## System Architecture
+
+```mermaid
+flowchart LR
+    Browser[Browser Client] -->|HTTP Requests| Gateway[FastAPI Ingestion]
+    Gateway -->|Auth Check| JWT[JWT Validator]
+    JWT -->|Validate Profile| Security[Security Service]
+    Gateway -->|Transactional Metrics| Analytics[Analytics Service]
+    Analytics -->|Async Bulk Write| DB[(Supabase PostgreSQL)]
 ```
+
+---
+
+## Data Flow Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    User->>Browser: Interacts with Dashboard
+    Browser->>Frontend: Triggers Metrics Fetch
+    Frontend->>REST API: GET /api/v1/analytics/kpis (JWT Bearer)
+    REST API->>Services: Executes Analytics Query
+    Services->>Database: Selects Aggregated Metrics
+    Database-->>Services: Returns Records
+    Services-->>REST API: Formats JSON Response
+    REST API-->>Frontend: Resolves API Payload
+    Frontend-->>Browser: Renders Interactive Recharts
+```
+
+---
 
 ## Tech Stack
 
 ### Frontend
-- React
-- Vite
-- JavaScript
-- React Router
-- Zustand
-- Tailwind CSS
-- Axios
-- Recharts
+<p align="left">
+  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+  <img src="https://img.shields.io/badge/Vite-B7178C?style=for-the-badge&logo=vite&logoColor=FFD62C" alt="Vite" />
+  <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind" />
+  <img src="https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white" alt="Axios" />
+  <img src="https://img.shields.io/badge/Recharts-22B573?style=for-the-badge&logo=chart&logoColor=white" alt="Recharts" />
+</p>
 
 ### Backend
-- FastAPI
-- Python
-- SQLAlchemy
-- Alembic
-- PostgreSQL
-- Pydantic
-- JWT
-- Bcrypt
+<p align="left">
+  <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/SQLAlchemy-D71F28?style=for-the-badge&logo=python&logoColor=white" alt="SQLAlchemy" />
+  <img src="https://img.shields.io/badge/Alembic-000000?style=for-the-badge&logo=alembic&logoColor=white" alt="Alembic" />
+  <img src="https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens" alt="JWT" />
+  <img src="https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
+</p>
 
-### Deployment
-- Vercel
-- Render
-
-### Database
-- Supabase PostgreSQL
+### Database & Deployment
+<p align="left">
+  <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+  <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white" alt="Render" />
+  <img src="https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel" />
+</p>
 
 ### Version Control
-- Git
-- GitHub
+<p align="left">
+  <img src="https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white" alt="Git" />
+  <img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
+</p>
+
+---
 
 ## Project Structure
 
 ```text
 llm-observability-pipeline/
-├── backend/                    # Backend API root
-│   ├── app/                    # Core application files
-│   │   ├── api/                # API router entry points
-│   │   │   └── v1/             # Versioned API routes
-│   │   ├── core/               # Middleware and security config
-│   │   ├── db/                 # DB pool engines
-│   │   ├── evaluation/         # Consistency assessment methods
-│   │   ├── models/             # Database models
-│   │   ├── providers/          # Service connectors
-│   │   ├── repositories/       # Persistence abstractions
-│   │   ├── routers/            # Authentication routers
-│   │   ├── schemas/            # Validation schemas
-│   │   ├── sdk/                # Tracing SDK context managers
-│   │   ├── services/           # Analytics and alerts services
-│   │   └── main.py             # Server entry point
-│   ├── alembic/                # Database migration scripts
-│   ├── tests/                  # Integration test suite
-│   ├── Dockerfile              # Backend container build script
-│   └── requirements.txt        # Backend dependencies
-├── frontend/                   # Frontend React dashboard root
-│   ├── src/                    # Frontend source codebase
-│   │   ├── api/                # Network service APIs
-│   │   ├── components/         # Shared UI controls
-│   │   ├── hooks/              # Custom utility hooks
-│   │   ├── pages/              # Visual view layouts
-│   │   └── store/              # State management store
-│   ├── Dockerfile              # Frontend container build script
-│   ├── package.json            # Frontend dependencies
-│   └── vite.config.js          # Vite config
-├── docker-compose.yml          # Container orchestration script
-├── render.yaml                 # Deployment blueprint
-└── README.md                   # Technical documentation
+├── backend/            # Python FastAPI backend application gateway
+├── frontend/           # React dashboard UI compiled with Vite
+├── docs/               # Technical deployment and API documentation
+└── tests/              # Automated unit and integration test suite
 ```
 
-## Installation
+---
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 16+
+## API Overview
 
-### Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Create and activate a Python virtual environment:
-   ```bash
-   python -m venv venv
-   # Windows
-   venv\Scripts\activate
-   # Linux/macOS
-   source venv/bin/activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-4. Run migrations and seed the database:
-   ```bash
-   python -m alembic upgrade head
-   python seed.py
-   ```
-5. Start the development server:
-   ```bash
-   uvicorn app.main:app --reload --port 8000
-   ```
+| Method | Endpoint | Purpose | Authorization |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/auth/register` | User profile initialization | Public |
+| `POST` | `/api/v1/auth/login` | Credentials authentication and token yield | Public |
+| `GET` | `/api/v1/auth/me` | Active profile details resolution | Yes (JWT) |
+| `POST` | `/api/v1/traces` | Telemetry log execution block ingestion | Public |
+| `GET` | `/api/v1/traces` | Query historical execution data | Yes (JWT) |
+| `GET` | `/api/v1/analytics/kpis` | Aggregated cost and latency stats | Yes (JWT) |
+| `GET` | `/api/v1/alerts` | Query active performance anomalies | Yes (JWT) |
 
-### Frontend Setup
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
+---
 
-### Docker Deployment
-To launch the entire platform in a multi-container environment:
+## Getting Started
+
+### 1. Clone & Environment
+```bash
+git clone https://github.com/Sakshisrivastava01/llm-observability-pipeline.git
+cd llm-observability-pipeline
+```
+
+### 2. Backend Setup
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python -m alembic upgrade head
+python seed.py
+uvicorn app.main:app --reload --port 8000
+```
+
+### 3. Frontend Setup
+```bash
+cd ../frontend
+npm install
+npm run dev
+```
+
+### 4. Docker Compose
 ```bash
 docker-compose up --build
 ```
 
-## Environment Variables
+---
 
-Configure the following variables in the `.env` files in both the `backend/` and `frontend/` directories:
+## Future Roadmap
 
-### Backend Variables
-- `ENVIRONMENT`: The runtime stage configuration (e.g., `production`, `development`).
-- `DATABASE_URL`: The PostgreSQL connection string using the asyncpg driver.
-- `JWT_SECRET_KEY`: A cryptographically secure random string used to sign JWTs.
-- `SENDGRID_API_KEY`: API token for transactional email notifications.
-- `SENDGRID_FROM_EMAIL`: The verified sender address for outgoing communications.
+- [ ] Multi-tenant isolation models
+- [ ] WebSocket connection for live telemetry feeds
+- [ ] Automated Slack/Email notifications on performance degradation
+- [ ] Advanced custom metric reporting templates
+- [ ] Kubernetes manifest configurations for container orchestration
+- [ ] Autoscaling database replicas for horizontal scaling
+- [ ] Dashboard PDF/CSV report exports
+- [ ] Enhanced user setting panels with dark/light themes
 
-### Frontend Variables
-- `VITE_API_BASE_URL`: The REST API endpoint prefix mapping to the backend application gateway.
-- `VITE_APP_NAME`: Visual title header displayed in the browser.
+---
 
-## API Endpoints
+### License
+Distributed under the MIT License. See [LICENSE](file:///c:/Users/saksh/OneDrive/Desktop/LLMProject/LICENSE) for more details.
 
-### Authentication
-| Method | Path | Auth Required | Description |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/register` | No | Creates a new user profile with hashed credentials |
-| `POST` | `/api/v1/auth/login` | No | Validates user credentials and returns a JWT access token |
-| `POST` | `/api/v1/auth/forgot-password` | No | Sends an OTP code to user's registered email |
-| `POST` | `/api/v1/auth/reset-password` | No | Validates email OTP and sets new password |
-| `GET` | `/api/v1/auth/me` | Yes | Retrieves profile details of currently authenticated user |
+### Author
+Designed and developed by [Sakshi Srivastava](https://www.linkedin.com/in/sakshi-srivastava-/).
 
-### Telemetry & Dashboard
-| Method | Path | Auth Required | Description |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/traces` | No | Ingests execution metadata and timing spans |
-| `GET` | `/api/v1/traces` | Yes | Returns paginated list of ingested execution logs |
-| `GET` | `/api/v1/analytics/kpis` | Yes | Retrieves aggregated performance indicators |
-| `GET` | `/api/v1/alerts` | Yes | Lists active system alerts and warnings |
-
-### Health Check
-| Method | Path | Auth Required | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/health` | No | Validates gateway API and database pool availability |
-
-## Deployment
-
-### Frontend
-- **Platform**: Vercel
-- **Configurations**: Build Command: `npm run build`, Output Directory: `dist`. Add rewrite rules to vercel.json configuration.
-
-### Backend
-- **Platform**: Render
-- **Configurations**: Set root directory to `backend`. Build Command: `pip install -r requirements.txt`. Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
-
-### Database
-- **Platform**: Supabase PostgreSQL
-- **Configurations**: Enable Row-Level Security (RLS) policies to isolate user transactions and restrict operational query profiles.
-
-## License
-MIT
+### Contributing
+Contributions are welcome. Please check git issues or open a pull request.
