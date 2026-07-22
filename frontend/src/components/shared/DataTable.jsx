@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import clsx from 'clsx'
 import { EmptyState, ErrorState, SkeletonTable } from './ui'
+import { motion } from 'framer-motion'
 
 /**
  * DataTable
@@ -73,7 +74,7 @@ export function DataTable({
                   {col.sortable ? (
                     <button
                       onClick={() => handleSort(col.key)}
-                      className="inline-flex items-center gap-1 hover:text-slate-300 transition-colors"
+                      className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-slate-200 transition-colors font-semibold"
                     >
                       {col.label}
                       {sortKey === col.key ? (
@@ -95,8 +96,7 @@ export function DataTable({
                 key={row.id || i}
                 onClick={() => onRowClick?.(row)}
                 className={clsx(
-                  'animate-fade-in',
-                  onRowClick && 'cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04]'
+                  onRowClick && 'cursor-pointer hover:bg-slate-50/50 dark:hover:bg-white/[0.01] active:bg-slate-100/50 dark:active:bg-white/[0.03]'
                 )}
               >
                 {columns.map((col) => (
@@ -111,43 +111,49 @@ export function DataTable({
       </div>
 
       {onPageChange && totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.06]">
-          <p className="text-xs text-slate-500">
+        <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 dark:border-white/[0.06]">
+          <p className="text-xs text-slate-500 font-semibold">
             {total ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}` : `Page ${page}`}
           </p>
-          <div className="flex items-center gap-1">
-            <button
+          <div className="flex items-center gap-1.5">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 1}
               className="btn-ghost p-1.5 disabled:opacity-30"
             >
               <ChevronLeft size={14} />
-            </button>
+            </motion.button>
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               const p = page <= 3 ? i + 1 : page - 2 + i
               if (p < 1 || p > totalPages) return null
               return (
-                <button
+                <motion.button
                   key={p}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
                   onClick={() => onPageChange(p)}
                   className={clsx(
-                    'w-7 h-7 rounded text-xs font-medium transition-colors',
+                    'w-7 h-7 rounded text-xs font-semibold transition-colors',
                     p === page
-                      ? 'bg-brand-500/20 text-brand-300'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                      ? 'bg-brand-500/10 text-brand-600 dark:text-brand-300 border border-brand-500/20'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
                   )}
                 >
                   {p}
-                </button>
+                </motion.button>
               )
             })}
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages}
               className="btn-ghost p-1.5 disabled:opacity-30"
             >
               <ChevronRight size={14} />
-            </button>
+            </motion.button>
           </div>
         </div>
       )}

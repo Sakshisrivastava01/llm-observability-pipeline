@@ -4,6 +4,7 @@ import { Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAuthStore, useUIStore } from '@/store'
 import { authService } from '@/api/services'
 import { Spinner } from '@/components/shared/ui'
+import { motion } from 'framer-motion'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -44,16 +45,27 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-surface-900 bg-glow-brand flex items-center justify-center p-4 transition-colors duration-200">
-      <div className="w-full max-w-sm">
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+        className="w-full max-w-sm"
+      >
         {/* Logo */}
         <div className="text-center mb-8">
-          <img
+          <motion.img
             src="/Project_logo.png"
             className="w-12 h-12 object-contain mx-auto mb-4"
             alt="Project Logo"
+            whileHover={{ scale: 1.08, rotate: 2, filter: 'drop-shadow(0 0 8px rgba(100,112,243,0.4))' }}
+            animate={{ scale: [1, 1.04, 1] }}
+            transition={{
+              animate: { repeat: Infinity, duration: 4, ease: 'easeInOut' },
+              whileHover: { type: 'spring', stiffness: 400, damping: 12 }
+            }}
           />
           <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">Observe</h1>
-          <p className="text-sm text-slate-500 mt-1">Sign in to your dashboard</p>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Sign in to your dashboard</p>
         </div>
 
         <div className="card p-6">
@@ -117,7 +129,7 @@ export default function Login() {
         <p className="text-center text-xs text-slate-500 mt-6 font-medium">
           Observability Pipeline · Built with FastAPI + Supabase
         </p>
-      </div>
+      </motion.div>
     </div>
   )
 }

@@ -18,16 +18,17 @@ export default {
           800: '#3637a7',
           900: '#303484',
         },
-        // Surface tokens (dark theme)
+        // Surface tokens mapped dynamically to CSS variables
         surface: {
-          900: '#0a0a0f',
-          800: '#0f0f17',
-          700: '#15151f',
-          600: '#1c1c28',
-          500: '#232334',
-          400: '#2d2d42',
-          300: '#3a3a52',
+          900: 'var(--bg-primary)',
+          800: 'var(--bg-secondary)',
+          700: 'var(--bg-card)',
+          600: 'var(--bg-card-hover)',
+          500: 'var(--bg-secondary)',
+          400: 'var(--border-color)',
+          300: 'var(--border-color)',
         },
+        sidebar: 'var(--bg-sidebar)',
         // Accent tokens
         cyan:    { DEFAULT: '#22d3ee', dim: '#0e7490' },
         emerald: { DEFAULT: '#34d399', dim: '#065f46' },

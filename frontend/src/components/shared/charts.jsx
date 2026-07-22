@@ -58,10 +58,10 @@ export function TrendChart({ data = [], series = [], xKey = 'date', title, subti
   const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
   const axisColor = isDark ? '#64748b' : '#475569'
   const tooltipStyle = {
-    backgroundColor: isDark ? '#15151f' : '#ffffff',
-    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+    backgroundColor: isDark ? '#18181b' : '#ffffff',
+    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
     borderRadius: '8px',
-    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.08)',
+    boxShadow: 'var(--shadow-md)',
     padding: '8px 12px',
   }
   const tooltipLabelStyle = {
@@ -117,10 +117,10 @@ export function BarChartWidget({ data = [], series = [], xKey = 'model', title, 
   const axisColor = isDark ? '#64748b' : '#475569'
   const cursorFill = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
   const tooltipStyle = {
-    backgroundColor: isDark ? '#15151f' : '#ffffff',
-    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+    backgroundColor: isDark ? '#18181b' : '#ffffff',
+    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
     borderRadius: '8px',
-    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.08)',
+    boxShadow: 'var(--shadow-md)',
     padding: '8px 12px',
   }
   const tooltipLabelStyle = {
@@ -166,10 +166,10 @@ export function HistogramChart({ data = [], dataKey = 'count', xKey = 'bucket', 
   const axisColor = isDark ? '#64748b' : '#475569'
   const cursorFill = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
   const tooltipStyle = {
-    backgroundColor: isDark ? '#15151f' : '#ffffff',
-    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+    backgroundColor: isDark ? '#18181b' : '#ffffff',
+    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
     borderRadius: '8px',
-    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.08)',
+    boxShadow: 'var(--shadow-md)',
     padding: '8px 12px',
   }
   const tooltipLabelStyle = {
@@ -213,10 +213,10 @@ export function DonutChart({ data = [], title, height = 200 }) {
 
   const axisColor = isDark ? '#64748b' : '#475569'
   const tooltipStyle = {
-    backgroundColor: isDark ? '#15151f' : '#ffffff',
-    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+    backgroundColor: isDark ? '#18181b' : '#ffffff',
+    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
     borderRadius: '8px',
-    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.08)',
+    boxShadow: 'var(--shadow-md)',
     padding: '8px 12px',
   }
   const tooltipItemStyle = {

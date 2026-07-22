@@ -1,10 +1,69 @@
 import { AlertTriangle, RefreshCw, Inbox } from 'lucide-react'
 import clsx from 'clsx'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+
+// ─── Custom Animated Counter ──────────────────────────────────────────────────
+export function AnimatedNumber({ value }) {
+  const [displayValue, setDisplayValue] = useState(0)
+
+  useEffect(() => {
+    const valString = String(value)
+    const numericMatch = valString.match(/[\d.]+/)
+    if (!numericMatch) {
+      setDisplayValue(value)
+      return
+    }
+
+    const target = parseFloat(numericMatch[0])
+    const prefix = valString.substring(0, numericMatch.index)
+    const suffix = valString.substring(numericMatch.index + numericMatch[0].length)
+    
+    let start = 0
+    const duration = 800 // ms
+    const startTime = performance.now()
+
+    const update = (now) => {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      
+      // Easing out quad
+      const eased = progress * (2 - progress)
+      const current = start + eased * (target - start)
+      
+      // Keep decimal places matching target representation
+      const decimalIndex = numericMatch[0].indexOf('.')
+      const decimals = decimalIndex === -1 ? 0 : numericMatch[0].length - decimalIndex - 1
+      
+      setDisplayValue(`${prefix}${current.toFixed(decimals)}${suffix}`)
+
+      if (progress < 1) {
+        requestAnimationFrame(update)
+      }
+    }
+
+    requestAnimationFrame(update)
+  }, [value])
+
+  return <span>{displayValue}</span>
+}
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 export function Card({ children, className, hover = false, ...props }) {
+  if (hover) {
+    return (
+      <motion.div
+        whileHover={{ y: -2, scale: 1.01 }}
+        transition={{ duration: 0.2 }}
+        className={clsx('card card-hover', className)}
+        {...props}
+      >
+        {children}
+      </motion.div>
+    )
+  }
   return (
-    <div className={clsx('card', hover && 'card-hover', className)} {...props}>
+    <div className={clsx('card', className)} {...props}>
       {children}
     </div>
   )
@@ -16,13 +75,20 @@ export function KpiCard({ title, value, change, changeLabel, icon: Icon, iconCol
   const isNeutral = change === 0 || change === undefined
 
   return (
-    <div className="kpi-card">
+    <motion.div
+      whileHover={{ y: -3, scale: 1.01 }}
+      transition={{ duration: 0.2 }}
+      className="kpi-card"
+    >
       <div className="flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{title}</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</p>
         {Icon && (
-          <div className={clsx('p-2 rounded-lg', iconColor || 'bg-brand-500/10')}>
+          <motion.div
+            whileHover={{ rotate: 15 }}
+            className={clsx('p-2 rounded-lg', iconColor || 'bg-brand-500/10')}
+          >
             <Icon size={14} className={clsx(iconColor ? 'text-current' : 'text-brand-400')} />
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -33,12 +99,14 @@ export function KpiCard({ title, value, change, changeLabel, icon: Icon, iconCol
         </div>
       ) : (
         <>
-          <p className="text-2xl font-semibold text-slate-100 tracking-tight">{value}</p>
+          <p className="text-2xl font-bold text-slate-100 tracking-tight">
+            <AnimatedNumber value={value} />
+          </p>
           {change !== undefined && (
             <p className={clsx(
-              'text-xs font-medium flex items-center gap-1',
+              'text-xs font-semibold flex items-center gap-1',
               isNeutral ? 'text-slate-500'
-              : isPositive ? 'text-emerald' : 'text-rose'
+              : isPositive ? 'text-emerald-600 dark:text-emerald' : 'text-rose'
             )}>
               <span>{isPositive ? '↑' : '↓'}</span>
               <span>{Math.abs(change)}% {changeLabel || 'vs 24h'}</span>
@@ -46,7 +114,7 @@ export function KpiCard({ title, value, change, changeLabel, icon: Icon, iconCol
           )}
         </>
       )}
-    </div>
+    </motion.div>
   )
 }
 
@@ -65,11 +133,11 @@ export function Badge({ variant = 'default', children, dot = false }) {
     <span className={BADGE_VARIANTS[variant] || BADGE_VARIANTS.default}>
       {dot && (
         <span className={clsx(
-          'status-dot',
-          variant === 'ok' ? 'bg-emerald' :
-          variant === 'medium' ? 'bg-amber' :
-          variant === 'high' || variant === 'critical' ? 'bg-rose' :
-          'bg-brand-400'
+          'status-dot mr-1.5',
+          variant === 'ok' ? 'bg-emerald pulse-green' :
+          variant === 'medium' ? 'bg-amber pulse-amber' :
+          variant === 'high' || variant === 'critical' ? 'bg-rose pulse-rose' :
+          'bg-brand-400 animate-pulse'
         )} />
       )}
       {children}
@@ -123,8 +191,6 @@ export function SkeletonTable({ rows = 5, cols = 5 }) {
 }
 
 // ─── Error State ─────────────────────────────────────────────────────────────
-import { useState } from 'react'
-
 export function ErrorState({ error, onRetry, className }) {
   const [showDetails, setShowDetails] = useState(false)
   const message = error?.message || 'Something went wrong. Please try again.'
@@ -132,9 +198,13 @@ export function ErrorState({ error, onRetry, className }) {
 
   return (
     <div className={clsx('flex flex-col items-center justify-center py-12 gap-4 text-center max-w-lg mx-auto', className)}>
-      <div className="p-3 rounded-full bg-rose-dim/30 border border-rose/20 text-rose">
+      <motion.div
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ repeat: Infinity, duration: 3 }}
+        className="p-3 rounded-full bg-rose/10 border border-rose/20 text-rose"
+      >
         <AlertTriangle size={24} />
-      </div>
+      </motion.div>
 
       <div>
         <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Failed to load data</p>
@@ -144,7 +214,7 @@ export function ErrorState({ error, onRetry, className }) {
       <div className="flex items-center gap-2">
         {onRetry && (
           <button onClick={onRetry} className="btn-primary text-xs py-1.5 px-3">
-            <RefreshCw size={13} />
+            <RefreshCw size={13} className="animate-spin" style={{ animationDuration: '4s' }} />
             Retry Request
           </button>
         )}
@@ -164,11 +234,18 @@ export function ErrorState({ error, onRetry, className }) {
         )}
       </div>
 
-      {showDetails && error && (
-        <pre className="w-full text-left bg-slate-100 dark:bg-surface-800/80 border border-slate-200 dark:border-white/[0.06] rounded-lg p-3 overflow-x-auto max-h-48 text-[10px] font-mono text-slate-600 dark:text-slate-400 select-all leading-tight">
-          {details}
-        </pre>
-      )}
+      <AnimatePresence>
+        {showDetails && error && (
+          <motion.pre
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="w-full text-left bg-slate-100 dark:bg-surface-800/80 border border-slate-200 dark:border-white/[0.06] rounded-lg p-3 overflow-x-auto max-h-48 text-[10px] font-mono text-slate-600 dark:text-slate-400 select-all leading-tight"
+          >
+            {details}
+          </motion.pre>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -177,12 +254,16 @@ export function ErrorState({ error, onRetry, className }) {
 export function EmptyState({ title = 'No data found', description, action, className }) {
   return (
     <div className={clsx('flex flex-col items-center justify-center py-16 gap-3 text-center', className)}>
-      <div className="p-3 rounded-full bg-surface-500 border border-white/10">
+      <motion.div
+        animate={{ y: [0, -6, 0] }}
+        transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+        className="p-3 rounded-full bg-slate-100 dark:bg-surface-500 border border-slate-200 dark:border-white/10"
+      >
         <Inbox size={20} className="text-slate-500" />
-      </div>
+      </motion.div>
       <div>
-        <p className="text-sm font-medium text-slate-400">{title}</p>
-        {description && <p className="text-xs text-slate-600 mt-1">{description}</p>}
+        <p className="text-sm font-semibold text-slate-400">{title}</p>
+        {description && <p className="text-xs text-slate-500 mt-1">{description}</p>}
       </div>
       {action}
     </div>
@@ -221,8 +302,13 @@ export function Divider({ className }) {
 export function ProgressBar({ value, max = 100, colorClass = 'bg-brand-500', className }) {
   const pct = Math.min(100, (value / max) * 100)
   return (
-    <div className={clsx('h-1.5 bg-surface-400 rounded-full overflow-hidden', className)}>
-      <div className={clsx('h-full rounded-full transition-all duration-500', colorClass)} style={{ width: `${pct}%` }} />
+    <div className={clsx('h-1.5 bg-slate-200 dark:bg-surface-400 rounded-full overflow-hidden', className)}>
+      <motion.div
+        initial={{ width: 0 }}
+        animate={{ width: `${pct}%` }}
+        transition={{ duration: 0.8, ease: 'easeOut' }}
+        className={clsx('h-full rounded-full', colorClass)}
+      />
     </div>
   )
 }
