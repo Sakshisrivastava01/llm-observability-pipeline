@@ -1,6 +1,6 @@
 <p align="center">
-  <h1 align="center">Cost-Performance Observability & Monitoring Pipeline</h1>
-  <p align="center">A high-performance metrics collection, latency analysis, and operational health platform for distributed services.</p>
+  <h1 align="center">LLM Observability & Cost-Performance Pipeline</h1>
+  <p align="center">Production-ready observability platform for monitoring LLM applications through latency analysis, token usage tracking, execution tracing, cost analytics, and interactive performance dashboards.</p>
 </p>
 
 <p align="center">
@@ -16,20 +16,24 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11" />
+  <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 18" />
   <img src="https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white" alt="Vite 5" />
-  <img src="https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python 3.11" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL 16" />
+  <img src="https://img.shields.io/badge/SQLAlchemy-2.0-D71F28?style=flat-square&logo=python&logoColor=white" alt="SQLAlchemy" />
+  <img src="https://img.shields.io/badge/JWT-Supported-black?style=flat-square&logo=JSON%20web%20tokens" alt="JWT" />
   <img src="https://img.shields.io/badge/Tailwind--CSS-3.0-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" alt="Tailwind CSS 3.0" />
   <img src="https://img.shields.io/badge/Docker-Supported-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/OpenAI-Integrations-412991?style=flat-square&logo=openai&logoColor=white" alt="OpenAI" />
+  <img src="https://img.shields.io/badge/Ollama-Supported-black?style=flat-square&logo=ollama&logoColor=white" alt="Ollama" />
 </p>
 
 ---
 
 ## Project Overview
 
-This platform solves the critical challenge of tracking cost-to-performance efficiency for active HTTP and token-based application endpoints. In production systems, tracking granular request timing and resource costs across thousands of transactions is highly bottlenecked by database locks and ingestion overhead. This pipeline introduces an async metrics collection SDK, a high-throughput FastAPI REST API using direct PostgreSQL binary copy protocols (sub-5ms write overhead), and an interactive React dashboard. The scalable dashboard enables developers to identify latency bottlenecks, review execution costs, isolate errors, and query performance metrics within a securely authenticated (JWT and RLS protected) console.
+LLM Observability & Cost-Performance Pipeline instruments large language model inference requests across multiple providers, supporting both cloud-based OpenAI REST endpoints and local Ollama deployments. By integrating custom context-bound SDK modules, the system automatically captures execution latency, tracks input/output token counts, and estimates runtime transaction pricing without adding query latency. Collected data is persisted to a PostgreSQL database via SQLAlchemy async sessions, enabling developers to monitor performance trends, debug trace spans, and evaluate consistency metrics. It provides an intuitive, React-based dashboard for side-by-side model cost-performance comparisons and securely handles authentication via JWT access controls.
 
 ---
 
@@ -37,26 +41,35 @@ This platform solves the critical challenge of tracking cost-to-performance effi
 
 | Feature | Details |
 | :--- | :--- |
-| **Secure Authentication** | OAuth2-compatible password hashing via `bcrypt` and JWT session tokens. |
-| **Real-time Dashboard** | Visual metrics reporting with `Recharts` and lightweight `Zustand` store management. |
-| **Request Monitoring** | Automatic trace tracking across execution stacks with step-by-step latency mapping. |
-| **Observability SDK** | Intercepts function execution blocks to automatically capture metadata, parameters, and timings. |
-| **Operational Analytics** | Calculation of latency percentiles (P50, P90, P95, P99) and cost aggregation models. |
-| **FastAPI REST API** | Clean, modular endpoints validated through strict `Pydantic` schemas. |
-| **Database Security** | PostgreSQL 16 on Supabase with enabled Row-Level Security (RLS) policies. |
-| **High-Throughput Ingestion** | Optimized db execution using high-performance asyncpg copy protocol. |
+| **Multi-Provider LLM Support** | Direct execution routing to OpenAI REST endpoints and local Ollama integrations. |
+| **Request Tracing** | Hierarchical trace and span context capturing using Python's `contextvars`. |
+| **Token Usage Analytics** | Live tracking of prompt and completion token counts per execution request. |
+| **Cost Monitoring** | Instant cost estimation mapping input and output tokens to pricing models. |
+| **Latency Monitoring** | Granular timing checks logging span-level and overall request processing times. |
+| **Performance Dashboard** | Responsive React application mapping KPIs, latency distributions, and throughput trends. |
+| **JWT Authentication** | Secure user registration, credential hashing with bcrypt, and session authorization. |
+| **REST APIs** | Standardized FastAPI endpoints validated via strict Pydantic schemas. |
+| **Historical Metrics** | Database queries isolating percentile trends (P50, P90, P95, P99) and errors. |
+| **Interactive Charts** | Visual data plotting using Recharts for dynamic multi-model metrics comparisons. |
+| **Secure User Management** | Protected user profiles, access controls, and validation token OTP password resets. |
 
 ---
 
 ## System Architecture
 
 ```mermaid
-flowchart LR
-    Browser[Browser Client] -->|HTTP Requests| Gateway[FastAPI Ingestion]
-    Gateway -->|Auth Check| JWT[JWT Validator]
-    JWT -->|Validate Profile| Security[Security Service]
-    Gateway -->|Transactional Metrics| Analytics[Analytics Service]
-    Analytics -->|Async Bulk Write| DB[(Supabase PostgreSQL)]
+flowchart TD
+    Dashboard[React Dashboard] -->|User Requests & JWT| Gateway[FastAPI REST API]
+    Gateway -->|Auth Guard| JWT[JWT Authentication]
+    Gateway -->|Telemetry Pipeline| Tracing[Tracing Layer]
+    Tracing -->|Telemetry Context| SDK[Observability SDK]
+    SDK -->|External Generation Request| Providers[Provider Layer]
+    Providers -->|HTTP API POST| OpenAI[OpenAI API]
+    Providers -->|HTTP API POST| Ollama[Local Ollama]
+    SDK -->|Store Metadata & Spans| DB[(PostgreSQL Database)]
+    Gateway -->|Metrics Aggregations| Analytics[Analytics Engine]
+    Analytics -->|Read Dashboard Stats| DB
+    DB -->|Visual Reports| Dashboard
 ```
 
 ---
@@ -67,15 +80,19 @@ flowchart LR
 sequenceDiagram
     autonumber
     actor User
-    User->>Browser: Interacts with Dashboard
-    Browser->>Frontend: Triggers Metrics Fetch
-    Frontend->>REST API: GET /api/v1/analytics/kpis (JWT Bearer)
-    REST API->>Services: Executes Analytics Query
-    Services->>Database: Selects Aggregated Metrics
-    Database-->>Services: Returns Records
-    Services-->>REST API: Formats JSON Response
-    REST API-->>Frontend: Resolves API Payload
-    Frontend-->>Browser: Renders Interactive Recharts
+    User->>Dashboard: Interacts with Dashboard UI
+    Dashboard->>Gateway: POST /api/v1/auth/login (Credentials)
+    Gateway-->>Dashboard: Returns JWT Token
+    Dashboard->>Gateway: POST /api/v1/traces (Payload with Telemetry Spans)
+    Note over Gateway,SDK: Telemetry Collector intercepting lifecycle
+    Gateway->>SDK: Active context managers track timing
+    SDK->>Providers: Generate content (OpenAI / Ollama)
+    Providers-->>SDK: Return Token counts & Response
+    SDK->>DB: Persist Trace & Spans (SQLAlchemy AsyncSession)
+    Dashboard->>Gateway: GET /api/v1/analytics/kpis (JWT Bearer)
+    Gateway->>DB: Query performance aggregates
+    DB-->>Gateway: Return records
+    Gateway-->>Dashboard: Return KPIs JSON payload
 ```
 
 ---
@@ -87,7 +104,7 @@ sequenceDiagram
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
   <img src="https://img.shields.io/badge/Vite-B7178C?style=for-the-badge&logo=vite&logoColor=FFD62C" alt="Vite" />
   <img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" />
-  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS" />
   <img src="https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white" alt="Axios" />
   <img src="https://img.shields.io/badge/Recharts-22B573?style=for-the-badge&logo=chart&logoColor=white" alt="Recharts" />
 </p>
@@ -102,17 +119,23 @@ sequenceDiagram
   <img src="https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
 </p>
 
-### Database & Deployment
+### LLM Integrations
+<p align="left">
+  <img src="https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI" />
+  <img src="https://img.shields.io/badge/Ollama-black?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
+</p>
+
+### Database
 <p align="left">
   <img src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+</p>
+
+### Deployment & Version Control
+<p align="left">
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
   <img src="https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white" alt="Render" />
   <img src="https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel" />
-</p>
-
-### Version Control
-<p align="left">
   <img src="https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white" alt="Git" />
   <img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
 </p>
@@ -180,14 +203,12 @@ docker-compose up --build
 
 ## Future Roadmap
 
-- [ ] Multi-tenant isolation models
-- [ ] WebSocket connection for live telemetry feeds
-- [ ] Automated Slack/Email notifications on performance degradation
-- [ ] Advanced custom metric reporting templates
-- [ ] Kubernetes manifest configurations for container orchestration
-- [ ] Autoscaling database replicas for horizontal scaling
-- [ ] Dashboard PDF/CSV report exports
-- [ ] Enhanced user setting panels with dark/light themes
+- [ ] Support additional LLM providers (Anthropic Claude, Cohere)
+- [ ] Real-time WebSocket connection for live telemetry feeds
+- [ ] Distributed tracing supporting multiple microservice environments
+- [ ] Role-based access control (RBAC) improvement schemes
+- [ ] Automated dashboard analytics PDF/CSV report exports
+- [ ] Automated performance degradation alert dispatch channels
 
 ---
 
