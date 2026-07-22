@@ -112,12 +112,12 @@
   }
 
   .login-card-premium {
-    background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: 1.5rem; /* 24px */
     box-shadow: var(--card-glow);
+    backdrop-filter: blur(22px);
     transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease, transform 0.4s ease;
-    animation: float-card-anim 8s ease-in-out infinite;
+    animation: float-card-new 10s ease-in-out infinite;
   }
 
   /* Transition smoothly over 400ms during theme swaps */
@@ -306,7 +306,7 @@
   animation: bell-ring-anim 0.8s ease-in-out;
 }
 
-@keyframes float-card-anim {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+@keyframes float-card-new {
+  0%, 100% { transform: translateY(-5px); }
+  50% { transform: translateY(5px); }
 }

@@ -8,12 +8,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import apiClient from '@/api/client'
 import clsx from 'clsx'
 
-// ─── GPU-Accelerated Neural Network Animation ────────────────────────────────
+// ─── GPU-Accelerated Fullscreen Neural Network Canvas ─────────────────────────
 function NeuralNetworkCanvas({ isDark }) {
   const canvasRef = useRef(null)
   const isDarkRef = useRef(isDark)
 
-  // Sync isDark into ref to prevent canvas resets when theme changes
+  // Keep isDark context synced in ref to prevent canvas particle re-init
   useEffect(() => {
     isDarkRef.current = isDark
   }, [isDark])
@@ -23,17 +23,26 @@ function NeuralNetworkCanvas({ isDark }) {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     let animationFrameId
-    let width = canvas.width = canvas.offsetWidth
-    let height = canvas.height = canvas.offsetHeight
+    let isTabActive = true
+
+    let width = canvas.width = window.innerWidth
+    let height = canvas.height = window.innerHeight
 
     const handleResize = () => {
       if (!canvas) return
-      width = canvas.width = canvas.offsetWidth
-      height = canvas.height = canvas.offsetHeight
+      width = canvas.width = window.innerWidth
+      height = canvas.height = window.innerHeight
     }
     window.addEventListener('resize', handleResize)
 
-    const particleCount = 45
+    // Visibility Listener to pause animation on background tabs
+    const handleVisibilityChange = () => {
+      isTabActive = !document.hidden
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Neural particles variables (190 particles count)
+    const particleCount = 190
     const particles = []
     for (let i = 0; i < particleCount; i++) {
       particles.push({
@@ -41,54 +50,230 @@ function NeuralNetworkCanvas({ isDark }) {
         y: Math.random() * height,
         vx: (Math.random() - 0.5) * 0.35,
         vy: (Math.random() - 0.5) * 0.35,
-        radius: Math.random() * 2 + 1.2,
+        baseRadius: Math.random() * 1.5 + 0.8,
+        radius: 0,
+        opacity: Math.random() * 0.5 + 0.25,
         phase: Math.random() * Math.PI * 2,
-        speed: 0.02 + Math.random() * 0.02
+        speed: 0.01 + Math.random() * 0.02
       })
     }
 
+    // Ambient floating lights (5 large radial lights)
+    const ambientLights = [
+      { x: width * 0.2, y: height * 0.3, vx: 0.08, vy: 0.06, baseRadius: 260, angle: 0, speed: 0.001 },
+      { x: width * 0.7, y: height * 0.2, vx: -0.06, vy: 0.08, baseRadius: 300, angle: Math.PI / 3, speed: 0.0008 },
+      { x: width * 0.4, y: height * 0.8, vx: 0.07, vy: -0.05, baseRadius: 240, angle: Math.PI / 1.5, speed: 0.0012 },
+      { x: width * 0.8, y: height * 0.7, vx: -0.05, vy: -0.07, baseRadius: 280, angle: Math.PI, speed: 0.0009 },
+      { x: width * 0.1, y: height * 0.8, vx: 0.04, vy: 0.05, baseRadius: 220, angle: Math.PI * 1.5, speed: 0.0007 }
+    ]
+
+    // AI Scanner Grid scanning variables
+    let gridOffset = 0
+
+    // Data Streams array (network packets traveling)
+    const dataStreams = []
+    const spawnStream = () => {
+      const isHorizontal = Math.random() > 0.5
+      dataStreams.push({
+        horizontal: isHorizontal,
+        pos: isHorizontal ? Math.random() * height : Math.random() * width,
+        progress: 0,
+        speed: 2 + Math.random() * 3,
+        length: 100 + Math.random() * 100
+      })
+    }
+
+    // Compute bursts array (appearing, expanding circles)
+    const computeRings = []
+    const spawnRing = () => {
+      computeRings.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        radius: 2,
+        maxRadius: 20 + Math.random() * 20,
+        opacity: 0.8,
+        speed: 0.2 + Math.random() * 0.3
+      })
+    }
+
+    // Mouse tracking variables
     let mouse = { x: null, y: null }
     const handleMouseMove = (e) => {
-      const rect = canvas.getBoundingClientRect()
-      mouse.x = e.clientX - rect.left
-      mouse.y = e.clientY - rect.top
+      mouse.x = e.clientX
+      mouse.y = e.clientY
     }
     const handleMouseLeave = () => {
       mouse.x = null
       mouse.y = null
     }
-
-    canvas.parentElement.addEventListener('mousemove', handleMouseMove)
-    canvas.parentElement.addEventListener('mouseleave', handleMouseLeave)
+    window.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseleave', handleMouseLeave)
 
     // Palette targets for interpolating smoothly on theme swaps (400ms duration)
-    const darkParticle = { r: 0, g: 229, b: 255, a: 0.65 }
+    const darkBg = { r: 9, g: 9, b: 11 }
+    const lightBg = { r: 248, g: 250, b: 252 }
+
+    const darkParticle = { r: 0, g: 229, b: 255 }
+    const lightParticle = { r: 37, g: 99, b: 235 }
+
     const darkLine = { r: 0, g: 229, b: 255, a: 0.18 }
-    const lightParticle = { r: 37, g: 99, b: 235, a: 0.45 }
     const lightLine = { r: 37, g: 99, b: 235, a: 0.12 }
 
+    // Floating Ambient Light Color Sets
+    // Dark: Cyan, Blue, Indigo, Purple
+    const darkLights = [
+      { r: 0, g: 229, b: 255 },
+      { r: 59, g: 130, b: 246 },
+      { r: 99, g: 102, b: 241 },
+      { r: 168, g: 85, b: 247 },
+      { r: 0, g: 229, b: 255 }
+    ]
+    // Light: Sky Blue, Slate, Indigo, White
+    const lightLights = [
+      { r: 56, g: 189, b: 248 },
+      { r: 148, g: 163, b: 184 },
+      { r: 99, g: 102, b: 241 },
+      { r: 255, g: 255, b: 255 },
+      { r: 56, g: 189, b: 248 }
+    ]
+
+    // Active color values to interpolate
+    const currBg = { ...lightBg }
     const currP = { ...lightParticle }
     const currL = { ...lightLine }
+    const currLights = lightLights.map(l => ({ ...l }))
 
     const draw = () => {
-      ctx.clearRect(0, 0, width, height)
+      if (!isTabActive) {
+        animationFrameId = requestAnimationFrame(draw)
+        return
+      }
+
       const activeIsDark = isDarkRef.current
 
-      // Interpolate colors towards targets
+      // Interpolate main colors towards target themes
+      const targetBg = activeIsDark ? darkBg : lightBg
       const targetP = activeIsDark ? darkParticle : lightParticle
       const targetL = activeIsDark ? darkLine : lightLine
+      const targetLights = activeIsDark ? darkLights : lightLights
 
-      currP.r += (targetP.r - currP.r) * 0.08
-      currP.g += (targetP.g - currP.g) * 0.08
-      currP.b += (targetP.b - currP.b) * 0.08
-      currP.a += (targetP.a - currP.a) * 0.08
+      currBg.r += (targetBg.r - currBg.r) * 0.07
+      currBg.g += (targetBg.g - currBg.g) * 0.07
+      currBg.b += (targetBg.b - currBg.b) * 0.07
 
-      currL.r += (targetL.r - currL.r) * 0.08
-      currL.g += (targetL.g - currL.g) * 0.08
-      currL.b += (targetL.b - currL.b) * 0.08
-      currL.a += (targetL.a - currL.a) * 0.08
+      currP.r += (targetP.r - currP.r) * 0.07
+      currP.g += (targetP.g - currP.g) * 0.07
+      currP.b += (targetP.b - currP.b) * 0.07
 
-      // Draw connection lines
+      currL.r += (targetL.r - currL.r) * 0.07
+      currL.g += (targetL.g - currL.g) * 0.07
+      currL.b += (targetL.b - currL.b) * 0.07
+      currL.a += (targetL.a - currL.a) * 0.07
+
+      // Interpolate ambient light colors
+      for (let i = 0; i < currLights.length; i++) {
+        currLights[i].r += (targetLights[i].r - currLights[i].r) * 0.07
+        currLights[i].g += (targetLights[i].g - currLights[i].g) * 0.07
+        currLights[i].b += (targetLights[i].b - currLights[i].b) * 0.07
+      }
+
+      // Draw background
+      ctx.fillStyle = `rgb(${Math.round(currBg.r)}, ${Math.round(currBg.g)}, ${Math.round(currBg.b)})`
+      ctx.fillRect(0, 0, width, height)
+
+      // ─── Draw Ambient Floating Lights ──────────────────────────────────────
+      ambientLights.forEach((light, i) => {
+        light.angle += light.speed
+        // Perlin-like slow floating motion
+        light.x += light.vx + Math.sin(light.angle) * 0.12
+        light.y += light.vy + Math.cos(light.angle) * 0.12
+
+        // Bounce boundaries
+        if (light.x < -100 || light.x > width + 100) light.vx *= -1
+        if (light.y < -100 || light.y > height + 100) light.vy *= -1
+
+        const activeColor = currLights[i]
+        const grad = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.baseRadius)
+        // High quality blurred glows
+        const opacityMultiplier = activeIsDark ? 0.07 : 0.05
+        grad.addColorStop(0, `rgba(${Math.round(activeColor.r)}, ${Math.round(activeColor.g)}, ${Math.round(activeColor.b)}, ${opacityMultiplier})`)
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+
+        ctx.beginPath()
+        ctx.arc(light.x, light.y, light.baseRadius, 0, Math.PI * 2)
+        ctx.fillStyle = grad
+        ctx.fill()
+      })
+
+      // ─── Draw AI Scanning Grid (Subtle Grid Overlay) ───────────────────────
+      gridOffset = (gridOffset + 0.08) % 60
+      ctx.beginPath()
+      const gridOpacity = activeIsDark ? 0.015 : 0.01
+      ctx.strokeStyle = `rgba(${Math.round(currL.r)}, ${Math.round(currL.g)}, ${Math.round(currL.b)}, ${gridOpacity})`
+      ctx.lineWidth = 0.6
+
+      // Vertical lines
+      for (let x = gridOffset; x < width; x += 60) {
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, height)
+      }
+      // Horizontal lines
+      for (let y = gridOffset; y < height; y += 60) {
+        ctx.moveTo(0, y)
+        ctx.lineTo(width, y)
+      }
+      ctx.stroke()
+
+      // ─── Spawn & Draw Network Data Streams ──────────────────────────────────
+      if (Math.random() < 0.015 && dataStreams.length < 3) spawnStream()
+      dataStreams.forEach((stream, i) => {
+        stream.progress += stream.speed
+        if (stream.progress > (stream.horizontal ? width : height) + stream.length) {
+          dataStreams.splice(i, 1)
+          return
+        }
+
+        ctx.beginPath()
+        const streamOpacity = activeIsDark ? 0.12 : 0.08
+        const grad = ctx.createLinearGradient(
+          stream.horizontal ? stream.progress - stream.length : stream.pos,
+          stream.horizontal ? stream.pos : stream.progress - stream.length,
+          stream.horizontal ? stream.progress : stream.pos,
+          stream.horizontal ? stream.pos : stream.progress
+        )
+        grad.addColorStop(0, 'rgba(0, 0, 0, 0)')
+        grad.addColorStop(1, `rgba(${Math.round(currL.r)}, ${Math.round(currL.g)}, ${Math.round(currL.b)}, ${streamOpacity})`)
+        ctx.strokeStyle = grad
+        ctx.lineWidth = 1.2
+
+        if (stream.horizontal) {
+          ctx.moveTo(stream.progress - stream.length, stream.pos)
+          ctx.lineTo(stream.progress, stream.pos)
+        } else {
+          ctx.moveTo(stream.pos, stream.progress - stream.length)
+          ctx.lineTo(stream.pos, stream.progress)
+        }
+        ctx.stroke()
+      })
+
+      // ─── Spawn & Draw Compute Burst Rings ───────────────────────────────────
+      if (Math.random() < 0.008 && computeRings.length < 4) spawnRing()
+      computeRings.forEach((ring, i) => {
+        ring.radius += ring.speed
+        ring.opacity -= 0.007
+        if (ring.opacity <= 0) {
+          computeRings.splice(i, 1)
+          return
+        }
+
+        ctx.beginPath()
+        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2)
+        ctx.strokeStyle = `rgba(${Math.round(currP.r)}, ${Math.round(currP.g)}, ${Math.round(currP.b)}, ${ring.opacity * 0.18})`
+        ctx.lineWidth = 0.8
+        ctx.stroke()
+      })
+
+      // ─── Draw Particle Connections ─────────────────────────────────────────
       for (let i = 0; i < particleCount; i++) {
         for (let j = i + 1; j < particleCount; j++) {
           const p1 = particles[i]
@@ -96,14 +281,14 @@ function NeuralNetworkCanvas({ isDark }) {
           const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y)
           
           if (dist < 100) {
-            let lineAlpha = currL.a * (1 - dist / 100)
+            let lineAlpha = currL.a * (1 - dist / 100) * p1.opacity
 
-            // Cursor connection lines tracking glow boost
+            // Cursor proximity glow lines boost (150px cursor area)
             if (mouse.x !== null && mouse.y !== null) {
               const mouseDist1 = Math.hypot(p1.x - mouse.x, p1.y - mouse.y)
               const mouseDist2 = Math.hypot(p2.x - mouse.x, p2.y - mouse.y)
-              if (mouseDist1 < 100 || mouseDist2 < 100) {
-                lineAlpha = Math.min(0.42, lineAlpha * 1.8)
+              if (mouseDist1 < 150 || mouseDist2 < 150) {
+                lineAlpha = Math.min(0.4, lineAlpha * 1.6)
               }
             }
 
@@ -111,53 +296,70 @@ function NeuralNetworkCanvas({ isDark }) {
             ctx.moveTo(p1.x, p1.y)
             ctx.lineTo(p2.x, p2.y)
             ctx.strokeStyle = `rgba(${Math.round(currL.r)}, ${Math.round(currL.g)}, ${Math.round(currL.b)}, ${lineAlpha})`
-            ctx.lineWidth = 0.8
+            ctx.lineWidth = 0.7
             ctx.stroke()
           }
         }
       }
 
-      // Mouse connection particles
+      // Temporary lines straight to cursor
       if (mouse.x !== null && mouse.y !== null) {
         particles.forEach((p) => {
           const dist = Math.hypot(p.x - mouse.x, p.y - mouse.y)
-          if (dist < 100) {
+          if (dist < 150) {
             ctx.beginPath()
             ctx.moveTo(p.x, p.y)
             ctx.lineTo(mouse.x, mouse.y)
-            ctx.strokeStyle = `rgba(${Math.round(currL.r)}, ${Math.round(currL.g)}, ${Math.round(currL.b)}, ${currL.a * (1 - dist / 100) * 1.5})`
-            ctx.lineWidth = 1.0
+            ctx.strokeStyle = `rgba(${Math.round(currL.r)}, ${Math.round(currL.g)}, ${Math.round(currL.b)}, ${currL.a * (1 - dist / 150) * 1.2})`
+            ctx.lineWidth = 0.8
             ctx.stroke()
           }
         })
       }
 
-      // Update & Draw particles
+      // ─── Update & Draw Neural Particles ────────────────────────────────────
       particles.forEach((p) => {
-        let activeRadius = p.radius
-        let activeAlpha = currP.a
+        let activeRadius = p.baseRadius
+        let activeAlpha = p.opacity * currP.a
 
-        // Cursor push & glow scale interaction
+        // Cursor magnetic attraction physics
         if (mouse.x !== null && mouse.y !== null) {
           const dist = Math.hypot(p.x - mouse.x, p.y - mouse.y)
-          if (dist < 100) {
-            const force = (100 - dist) / 100
-            const angle = Math.atan2(p.y - mouse.y, p.x - mouse.x)
-            p.x += Math.cos(angle) * force * 1.4
-            p.y += Math.sin(angle) * force * 1.4
-            activeRadius += force * 2.0
-            activeAlpha = Math.min(1.0, currP.a + force * 0.4)
+          if (dist < 150) {
+            const force = (150 - dist) / 150
+            
+            // Magnetic force pull towards mouse coordinates
+            p.x += (mouse.x - p.x) * force * 0.022
+            p.y += (mouse.y - p.y) * force * 0.022
+
+            activeRadius += force * 1.5
+            activeAlpha = Math.min(1.0, activeAlpha + force * 0.35)
           }
         }
 
+        // Drifting motion
         p.x += p.vx
         p.y += p.vy
         p.phase += p.speed
 
-        if (p.x < 0 || p.x > width) p.vx *= -1
-        if (p.y < 0 || p.y > height) p.vy *= -1
+        // Organic slow direction changing nudge
+        p.vx += (Math.random() - 0.5) * 0.008
+        p.vy += (Math.random() - 0.5) * 0.008
 
-        const pulsedRadius = activeRadius + Math.sin(p.phase) * 0.5
+        // Clamp speeds
+        const speed = Math.hypot(p.vx, p.vy)
+        if (speed > 0.42) {
+          p.vx = (p.vx / speed) * 0.42
+          p.vy = (p.vy / speed) * 0.42
+        }
+
+        // Screen boundary wrapping
+        if (p.x < 0) p.x = width
+        if (p.x > width) p.x = 0
+        if (p.y < 0) p.y = height
+        if (p.y > height) p.y = 0
+
+        const pulsedRadius = activeRadius + Math.sin(p.phase) * 0.4
 
         ctx.beginPath()
         ctx.arc(p.x, p.y, pulsedRadius, 0, Math.PI * 2)
@@ -172,16 +374,15 @@ function NeuralNetworkCanvas({ isDark }) {
 
     return () => {
       window.removeEventListener('resize', handleResize)
-      if (canvas && canvas.parentElement) {
-        canvas.parentElement.removeEventListener('mousemove', handleMouseMove)
-        canvas.parentElement.removeEventListener('mouseleave', handleMouseLeave)
-      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseleave', handleMouseLeave)
       cancelAnimationFrame(animationFrameId)
     }
   }, [])
 
   return (
-    <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none opacity-45 z-0" />
+    <canvas ref={canvasRef} className="fixed top-0 left-0 w-screen h-screen z-[-1] pointer-events-none" />
   )
 }
 
@@ -248,23 +449,24 @@ const FEATURE_CARDS = [
   }
 ]
 
-const staggerContainer = {
+// ─── Staggered Timeline Variants (1.5-2s total sequence) ─────────────────────
+const rootPageVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.15
+      staggerChildren: 0.15,
+      delayChildren: 0.1
     }
   }
 }
 
-const slideInItem = {
-  hidden: { opacity: 0, y: 15 },
+const staggerSlideItem = {
+  hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: 'spring', stiffness: 100, damping: 15 }
+    transition: { type: 'spring', stiffness: 100, damping: 14 }
   }
 }
 
@@ -362,21 +564,20 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen w-full flex bg-slate-50 dark:bg-surface-900 overflow-hidden relative">
+    <motion.div
+      variants={rootPageVariants}
+      initial="hidden"
+      animate="visible"
+      className="min-h-screen w-full flex bg-transparent overflow-hidden relative select-none"
+    >
+      {/* Fullscreen Canvas overlay backdrop */}
+      <NeuralNetworkCanvas isDark={isDark} />
       
-      {/* Blurred background circle elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none select-none z-0">
-        <div className="absolute top-[10%] left-[10%] w-[400px] h-[400px] rounded-full bg-blue-400/10 dark:bg-blue-600/10 blur-[120px] transition-colors duration-1000" />
-        <div className="absolute bottom-[10%] right-[10%] w-[450px] h-[450px] rounded-full bg-indigo-300/10 dark:bg-purple-600/5 blur-[135px] transition-colors duration-1000" />
-        <div className="absolute top-[40%] left-[40%] w-[300px] h-[300px] rounded-full bg-slate-200/10 dark:bg-cyan-500/10 blur-[100px] transition-colors duration-1000" />
-      </div>
-
       {/* ─── LEFT PANEL (Enterprise Branding) ────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[55%] flex-col justify-between p-12 bg-slate-100/30 dark:bg-zinc-950/20 border-r border-slate-200/50 dark:border-zinc-800/40 relative overflow-hidden select-none z-10">
-        <NeuralNetworkCanvas isDark={isDark} />
-
+      <div className="hidden lg:flex lg:w-[55%] flex-col justify-between p-12 bg-transparent border-r border-slate-200/40 dark:border-zinc-800/30 relative overflow-hidden">
+        
         {/* Top Header branding */}
-        <div className="flex items-center gap-2.5 relative z-10">
+        <motion.div variants={staggerSlideItem} className="flex items-center gap-2.5 relative z-10">
           <motion.img
             src="/Project_logo.png"
             className="w-7 h-7 object-contain rounded-md"
@@ -403,24 +604,19 @@ export default function Login() {
             }}
           />
           <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-widest leading-none">Observe</span>
-        </div>
+        </motion.div>
 
         {/* Center Descriptions & Cards */}
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-          className="max-w-lg space-y-8 my-auto relative z-10"
-        >
+        <div className="max-w-lg space-y-8 my-auto relative z-10">
           <div className="space-y-4">
             <motion.h2
-              variants={slideInItem}
+              variants={staggerSlideItem}
               className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight leading-tight"
             >
               Observe, analyze and optimize every LLM interaction from a single enterprise dashboard.
             </motion.h2>
             <motion.p
-              variants={slideInItem}
+              variants={staggerSlideItem}
               className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed"
             >
               Monitor latency, token usage, hallucinations, cost efficiency, OpenAI, Ollama and production AI performance in real time.
@@ -432,15 +628,15 @@ export default function Login() {
             {FEATURE_CARDS.map(({ icon: Icon, title, description }) => (
               <motion.div
                 key={title}
-                variants={slideInItem}
+                variants={staggerSlideItem}
                 whileHover={{
                   y: -8,
                   scale: 1.02,
                   borderColor: isDark ? 'rgba(0, 229, 255, 0.45)' : 'rgba(37, 99, 235, 0.45)',
                   boxShadow: 'var(--shadow-md)',
-                  background: isDark ? 'linear-gradient(135deg, rgba(24,24,27,0.85) 0%, rgba(24,24,27,0.7) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.55) 100%)'
+                  background: isDark ? 'linear-gradient(135deg, rgba(24,24,27,0.7) 0%, rgba(24,24,27,0.55) 100%)' : 'linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.45) 100%)'
                 }}
-                className="p-4 rounded-xl border border-slate-200/55 dark:border-zinc-800 bg-white/40 dark:bg-zinc-900/30 backdrop-blur-sm flex gap-3 text-left transition-all duration-350 group"
+                className="p-4 rounded-xl border border-slate-200/50 dark:border-zinc-800 bg-white/30 dark:bg-zinc-900/20 backdrop-blur-sm flex gap-3 text-left transition-all duration-350 group"
               >
                 <div className="p-2 h-fit rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 shrink-0 transition-transform duration-300 group-hover:rotate-5">
                   <Icon size={15} />
@@ -452,16 +648,16 @@ export default function Login() {
               </motion.div>
             ))}
           </div>
-        </motion.div>
+        </div>
 
         {/* Footer info */}
-        <div className="text-[10px] text-slate-400 font-semibold relative z-10">
+        <motion.div variants={staggerSlideItem} className="text-[10px] text-slate-400 font-semibold relative z-10">
           Observe Enterprise observability suite · v1.0.0
-        </div>
+        </motion.div>
       </div>
 
       {/* ─── RIGHT PANEL (Login Panel) ────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 relative z-10">
+      <div className="flex-1 flex flex-col justify-center items-center p-6 bg-transparent relative">
         
         {/* Mobile header Logo */}
         <div className="lg:hidden flex flex-col items-center mb-6">
@@ -474,15 +670,11 @@ export default function Login() {
         </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.94 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{
-            type: 'spring',
-            stiffness: 100,
-            damping: 15,
-            mass: 0.8
-          }}
-          className="w-full max-w-sm login-card-premium p-8 bg-white/70 dark:bg-zinc-900/60 backdrop-blur-md border border-slate-200/50 dark:border-zinc-800/40 relative"
+          variants={staggerSlideItem}
+          className={clsx(
+            "w-full max-w-sm login-card-premium p-8 border border-slate-200/50 dark:border-zinc-800/40 relative z-10",
+            "bg-white/72 dark:bg-[rgba(18,18,25,0.82)]"
+          )}
         >
           {/* Form Header */}
           <div className="mb-6">
@@ -599,6 +791,6 @@ export default function Login() {
         </motion.div>
       </div>
 
-    </div>
+    </motion.div>
   )
 }
