@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useAuthStore, useFilterStore } from '@/store'
+import { useAuthStore, useFilterStore, useUIStore } from '@/store'
 import { modelsService } from '@/api/services'
 import { Spinner } from '@/components/shared/ui'
 
@@ -39,6 +39,16 @@ function PageLoader() {
 export default function App() {
   const { isAuthenticated } = useAuthStore()
   const { setAvailableModels } = useFilterStore()
+  const { theme } = useUIStore()
+
+  // Apply theme class to HTML element
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }, [theme])
 
   // Bootstrap: fetch available model list once
   useEffect(() => {

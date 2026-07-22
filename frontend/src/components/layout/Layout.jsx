@@ -3,7 +3,7 @@ import { Header } from './Header'
 
 export function Layout({ children, title, subtitle, showFilters }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-surface-900 bg-noise">
+    <div className="flex h-screen overflow-hidden bg-slate-100 dark:bg-surface-900 bg-noise">
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <Header title={title} subtitle={subtitle} showFilters={showFilters} />

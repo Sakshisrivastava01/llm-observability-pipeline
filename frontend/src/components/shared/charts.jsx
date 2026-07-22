@@ -29,24 +29,7 @@ export function modelColor(model) {
   return MODEL_COLORS[model?.toLowerCase()] || MODEL_COLORS.default
 }
 
-const TOOLTIP_STYLE = {
-  backgroundColor: '#15151f',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: '8px',
-  boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-  padding: '8px 12px',
-}
-
-const TOOLTIP_LABEL_STYLE = {
-  color: '#94a3b8',
-  fontSize: '11px',
-  marginBottom: '4px',
-}
-
-const TOOLTIP_ITEM_STYLE = {
-  color: '#e2e8f0',
-  fontSize: '12px',
-}
+import { useUIStore } from '@/store'
 
 function ChartWrapper({ title, subtitle, action, height = 240, className, children }) {
   return (
@@ -54,7 +37,7 @@ function ChartWrapper({ title, subtitle, action, height = 240, className, childr
       {(title || action) && (
         <div className="flex items-start justify-between mb-4">
           <div>
-            {title && <p className="text-sm font-semibold text-slate-200">{title}</p>}
+            {title && <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</p>}
             {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
           </div>
           {action}
@@ -69,6 +52,28 @@ function ChartWrapper({ title, subtitle, action, height = 240, className, childr
 
 // ─── Area / Line Trend Chart ──────────────────────────────────────────────────
 export function TrendChart({ data = [], series = [], xKey = 'date', title, subtitle, height = 220 }) {
+  const { theme } = useUIStore()
+  const isDark = theme === 'dark'
+
+  const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
+  const axisColor = isDark ? '#64748b' : '#475569'
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#15151f' : '#ffffff',
+    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+    borderRadius: '8px',
+    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.08)',
+    padding: '8px 12px',
+  }
+  const tooltipLabelStyle = {
+    color: isDark ? '#94a3b8' : '#64748b',
+    fontSize: '11px',
+    marginBottom: '4px',
+  }
+  const tooltipItemStyle = {
+    color: isDark ? '#e2e8f0' : '#1e293b',
+    fontSize: '12px',
+  }
+
   return (
     <ChartWrapper title={title} subtitle={subtitle} height={height}>
       <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
@@ -80,11 +85,11 @@ export function TrendChart({ data = [], series = [], xKey = 'date', title, subti
             </linearGradient>
           ))}
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-        <XAxis dataKey={xKey} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
-        {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />}
+        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+        <XAxis dataKey={xKey} tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} />
+        {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: axisColor }} />}
         {series.map((s) => (
           <Area
             key={s.key}
@@ -105,14 +110,37 @@ export function TrendChart({ data = [], series = [], xKey = 'date', title, subti
 
 // ─── Bar Chart ────────────────────────────────────────────────────────────────
 export function BarChartWidget({ data = [], series = [], xKey = 'model', title, subtitle, height = 220, stacked = false }) {
+  const { theme } = useUIStore()
+  const isDark = theme === 'dark'
+
+  const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
+  const axisColor = isDark ? '#64748b' : '#475569'
+  const cursorFill = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#15151f' : '#ffffff',
+    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+    borderRadius: '8px',
+    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.08)',
+    padding: '8px 12px',
+  }
+  const tooltipLabelStyle = {
+    color: isDark ? '#94a3b8' : '#64748b',
+    fontSize: '11px',
+    marginBottom: '4px',
+  }
+  const tooltipItemStyle = {
+    color: isDark ? '#e2e8f0' : '#1e293b',
+    fontSize: '12px',
+  }
+
   return (
     <ChartWrapper title={title} subtitle={subtitle} height={height}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-        <XAxis dataKey={xKey} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-        {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />}
+        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+        <XAxis dataKey={xKey} tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} cursor={{ fill: cursorFill }} />
+        {series.length > 1 && <Legend wrapperStyle={{ fontSize: 11, color: axisColor }} />}
         {series.map((s) => (
           <Bar
             key={s.key}
@@ -131,13 +159,36 @@ export function BarChartWidget({ data = [], series = [], xKey = 'model', title, 
 
 // ─── Histogram / Distribution ─────────────────────────────────────────────────
 export function HistogramChart({ data = [], dataKey = 'count', xKey = 'bucket', color = CHART_COLORS.brand, title, height = 180 }) {
+  const { theme } = useUIStore()
+  const isDark = theme === 'dark'
+
+  const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
+  const axisColor = isDark ? '#64748b' : '#475569'
+  const cursorFill = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#15151f' : '#ffffff',
+    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+    borderRadius: '8px',
+    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.08)',
+    padding: '8px 12px',
+  }
+  const tooltipLabelStyle = {
+    color: isDark ? '#94a3b8' : '#64748b',
+    fontSize: '11px',
+    marginBottom: '4px',
+  }
+  const tooltipItemStyle = {
+    color: isDark ? '#e2e8f0' : '#1e293b',
+    fontSize: '12px',
+  }
+
   return (
     <ChartWrapper title={title} height={height}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-        <XAxis dataKey={xKey} tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
-        <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={TOOLTIP_LABEL_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+        <XAxis dataKey={xKey} tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={tooltipStyle} labelStyle={tooltipLabelStyle} itemStyle={tooltipItemStyle} cursor={{ fill: cursorFill }} />
         <Bar dataKey={dataKey} fill={color} radius={[2, 2, 0, 0]} maxBarSize={32} />
       </BarChart>
     </ChartWrapper>
@@ -157,6 +208,22 @@ export function Sparkline({ data = [], dataKey = 'value', color = CHART_COLORS.b
 
 // ─── Donut / Pie ──────────────────────────────────────────────────────────────
 export function DonutChart({ data = [], title, height = 200 }) {
+  const { theme } = useUIStore()
+  const isDark = theme === 'dark'
+
+  const axisColor = isDark ? '#64748b' : '#475569'
+  const tooltipStyle = {
+    backgroundColor: isDark ? '#15151f' : '#ffffff',
+    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+    borderRadius: '8px',
+    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.08)',
+    padding: '8px 12px',
+  }
+  const tooltipItemStyle = {
+    color: isDark ? '#e2e8f0' : '#1e293b',
+    fontSize: '12px',
+  }
+
   const colors = Object.values(CHART_COLORS)
   return (
     <ChartWrapper title={title} height={height}>
@@ -167,8 +234,8 @@ export function DonutChart({ data = [], title, height = 200 }) {
             <Cell key={i} fill={colors[i % colors.length]} stroke="none" />
           ))}
         </Pie>
-        <Tooltip contentStyle={TOOLTIP_STYLE} itemStyle={TOOLTIP_ITEM_STYLE} />
-        <Legend wrapperStyle={{ fontSize: 11, color: '#64748b' }} />
+        <Tooltip contentStyle={tooltipStyle} itemStyle={tooltipItemStyle} />
+        <Legend wrapperStyle={{ fontSize: 11, color: axisColor }} />
       </PieChart>
     </ChartWrapper>
   )

@@ -77,15 +77,53 @@ export const useAuthStore = create(
 )
 
 // ─── UI Store ─────────────────────────────────────────────────────────────────
-export const useUIStore = create((set) => ({
-  sidebarCollapsed: false,
-  theme: 'dark',
-  activeNotifications: [],
+export const useUIStore = create((set) => {
+  const initialTheme = localStorage.getItem('theme') || 'dark'
+  const initialSidebar = localStorage.getItem('sidebar_collapsed') === 'true'
 
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-  setTheme: (theme) => set({ theme }),
-  addNotification: (n) =>
-    set((s) => ({ activeNotifications: [{ ...n, id: Date.now() }, ...s.activeNotifications].slice(0, 5) })),
-  dismissNotification: (id) =>
-    set((s) => ({ activeNotifications: s.activeNotifications.filter((n) => n.id !== id) })),
-}))
+  return {
+    sidebarCollapsed: initialSidebar,
+    theme: initialTheme,
+    notifications: [],
+
+    toggleSidebar: () =>
+      set((s) => {
+        const next = !s.sidebarCollapsed
+        localStorage.setItem('sidebar_collapsed', String(next))
+        return { sidebarCollapsed: next }
+      }),
+
+    setTheme: (newTheme) =>
+      set(() => {
+        localStorage.setItem('theme', newTheme)
+        return { theme: newTheme }
+      }),
+
+    addNotification: (n) =>
+      set((s) => {
+        const newNotif = {
+          id: Date.now() + Math.random(),
+          title: n.title,
+          message: n.message,
+          type: n.type || 'info',
+          timestamp: new Date().toISOString(),
+          read: false,
+        }
+        return { notifications: [newNotif, ...s.notifications].slice(0, 30) }
+      }),
+
+    markAsRead: (id) =>
+      set((s) => ({
+        notifications: s.notifications.map((n) =>
+          n.id === id ? { ...n, read: true } : n
+        ),
+      })),
+
+    markAllAsRead: () =>
+      set((s) => ({
+        notifications: s.notifications.map((n) => ({ ...n, read: true })),
+      })),
+
+    clearAllNotifications: () => set({ notifications: [] }),
+  }
+})

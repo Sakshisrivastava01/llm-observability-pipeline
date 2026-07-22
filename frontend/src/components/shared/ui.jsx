@@ -123,22 +123,51 @@ export function SkeletonTable({ rows = 5, cols = 5 }) {
 }
 
 // ─── Error State ─────────────────────────────────────────────────────────────
+import { useState } from 'react'
+
 export function ErrorState({ error, onRetry, className }) {
+  const [showDetails, setShowDetails] = useState(false)
   const message = error?.message || 'Something went wrong. Please try again.'
+  const details = error?.stack || error?.details || (typeof error === 'object' ? JSON.stringify(error, null, 2) : String(error))
+
   return (
-    <div className={clsx('flex flex-col items-center justify-center py-16 gap-4 text-center', className)}>
-      <div className="p-3 rounded-full bg-rose-dim/30 border border-rose/20">
-        <AlertTriangle size={20} className="text-rose" />
+    <div className={clsx('flex flex-col items-center justify-center py-12 gap-4 text-center max-w-lg mx-auto', className)}>
+      <div className="p-3 rounded-full bg-rose-dim/30 border border-rose/20 text-rose">
+        <AlertTriangle size={24} />
       </div>
+
       <div>
-        <p className="text-sm font-medium text-slate-300">Failed to load data</p>
-        <p className="text-xs text-slate-500 mt-1 max-w-xs">{message}</p>
+        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Failed to load data</p>
+        <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">{message}</p>
       </div>
-      {onRetry && (
-        <button onClick={onRetry} className="btn-ghost text-xs gap-1.5">
-          <RefreshCw size={13} />
-          Try again
+
+      <div className="flex items-center gap-2">
+        {onRetry && (
+          <button onClick={onRetry} className="btn-primary text-xs py-1.5 px-3">
+            <RefreshCw size={13} />
+            Retry Request
+          </button>
+        )}
+        <button
+          onClick={() => window.location.reload()}
+          className="btn-outline text-xs py-1.5 px-3"
+        >
+          Reload Page
         </button>
+        {error && (
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="btn-ghost text-xs py-1.5 px-3"
+          >
+            {showDetails ? 'Hide Details' : 'View Details'}
+          </button>
+        )}
+      </div>
+
+      {showDetails && error && (
+        <pre className="w-full text-left bg-slate-100 dark:bg-surface-800/80 border border-slate-200 dark:border-white/[0.06] rounded-lg p-3 overflow-x-auto max-h-48 text-[10px] font-mono text-slate-600 dark:text-slate-400 select-all leading-tight">
+          {details}
+        </pre>
       )}
     </div>
   )

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { useUIStore } from '@/store'
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '/api/v1',
@@ -39,6 +40,15 @@ apiClient.interceptors.response.use(
 
       if (config._retryCount <= 3) {
         console.log(`Service unavailable (503). Retrying in 10s (attempt ${config._retryCount}/3)...`)
+        try {
+          useUIStore.getState().addNotification({
+            title: 'Service Waking Up',
+            message: `Observability database starting up. Retrying attempt ${config._retryCount}/3...`,
+            type: 'info'
+          })
+        } catch (e) {
+          console.warn(e)
+        }
         await new Promise((resolve) => setTimeout(resolve, 10000))
         return apiClient(config)
       }
@@ -69,6 +79,17 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       console.error('401 Unauthorized', error.response);
       return Promise.reject(error)
+    }
+
+    // Dispatch error notification to the drawer
+    try {
+      useUIStore.getState().addNotification({
+        title: error.response?.status === 503 ? 'Service Starting' : 'API Connection Error',
+        message: message,
+        type: 'error'
+      })
+    } catch (e) {
+      console.warn(e)
     }
 
     return Promise.reject(normalised)
