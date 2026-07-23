@@ -10,6 +10,27 @@ const apiClient = axios.create({
   paramsSerializer: {
     indexes: null,
   },
+  adapter: async (config) => {
+    try {
+      const isGuest = useAuthStore.getState().isGuest
+      if (isGuest && !config.url.includes('/auth/login') && !config.url.includes('/auth/register')) {
+        const mockResponse = getGuestMockResponse(config)
+        if (mockResponse) {
+          return {
+            data: mockResponse,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Guest intercept error', e)
+    }
+    const defaultAdapter = axios.getAdapter ? axios.getAdapter(axios.defaults.adapter) : axios.defaults.adapter
+    return defaultAdapter(config)
+  }
 })
 
 function getGuestMockResponse(config) {
@@ -185,24 +206,6 @@ function getGuestMockResponse(config) {
 // Request interceptor — attach auth token if present
 apiClient.interceptors.request.use(
   (config) => {
-    try {
-      const isGuest = useAuthStore.getState().isGuest
-      if (isGuest && !config.url.includes('/auth/login') && !config.url.includes('/auth/register')) {
-        const mockResponse = getGuestMockResponse(config)
-        if (mockResponse) {
-          return Promise.resolve({
-            data: mockResponse,
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config,
-          })
-        }
-      }
-    } catch (e) {
-      console.warn('Guest intercept error', e)
-    }
-
     const token = useAuthStore.getState().token || localStorage.getItem('auth_token')
     if (token && token !== 'undefined' && token !== 'null') {
       config.headers.Authorization = `Bearer ${token}`
