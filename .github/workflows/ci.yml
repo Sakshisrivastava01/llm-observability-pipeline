@@ -41,6 +41,6 @@ jobs:
           MYPYPATH: backend
 
       - name: Execute pytest suite
-        run: pytest tests -v
+        run: pytest backend/tests -v
         env:
           PYTHONPATH: backend
