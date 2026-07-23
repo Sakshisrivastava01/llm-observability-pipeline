@@ -6,13 +6,20 @@ import { DataTable } from '@/components/shared/DataTable'
 import { TrendChart, CHART_COLORS } from '@/components/shared/charts'
 import { useApi } from '@/hooks/useApi'
 import { alertsService } from '@/api/services'
-import { useFilterStore } from '@/store'
+import { useFilterStore, useAuthStore, useUIStore } from '@/store'
 import clsx from 'clsx'
 
 function ResolveButton({ alertId, onResolve }) {
   const [resolving, setResolving] = useState(false)
 
+  const { isGuest } = useAuthStore()
+  const { setAuthModalOpen } = useUIStore()
+
   async function handleResolve() {
+    if (isGuest) {
+      setAuthModalOpen(true)
+      return
+    }
     setResolving(true)
     try {
       await alertsService.resolveAlert(alertId)
@@ -28,7 +35,7 @@ function ResolveButton({ alertId, onResolve }) {
     <button
       onClick={handleResolve}
       disabled={resolving}
-      className="text-xs text-slate-500 hover:text-brand-300 transition-colors disabled:opacity-50"
+      className="text-xs text-slate-500 hover:text-brand-500 transition-colors disabled:opacity-50"
     >
       {resolving ? 'Resolving…' : 'Resolve'}
     </button>
@@ -56,7 +63,7 @@ export default function Alerts() {
     { key: 'severity', label: 'Severity', width: '100px',
       render: (v) => <SeverityBadge severity={v} /> },
     { key: 'model', label: 'Model', width: '120px',
-      render: (v) => <span className="font-mono text-xs text-brand-300">{v}</span> },
+      render: (v) => <span className="font-mono text-xs text-brand-500">{v}</span> },
     { key: 'metric', label: 'Metric', width: '140px',
       render: (v) => <span className="text-xs">{v}</span> },
     { key: 'baseline_value', label: 'Baseline', sortable: true, align: 'right', width: '100px',

@@ -112,6 +112,7 @@ export default function Overview() {
           xKey="date"
           title="Call Volume — 7-day trend"
           height={200}
+          loading={trendsLoading}
         />
         <TrendChart
           data={trends ?? []}
@@ -119,6 +120,7 @@ export default function Overview() {
           xKey="date"
           title="Avg Latency — 7-day trend"
           height={200}
+          loading={trendsLoading}
         />
       </div>
 
@@ -131,6 +133,7 @@ export default function Overview() {
           title="Model Comparison"
           subtitle="Calls and avg latency per model"
           height={200}
+          loading={modelsLoading}
         />
         <HistogramChart
           data={latDist ?? []}
@@ -139,6 +142,7 @@ export default function Overview() {
           color={CHART_COLORS.violet}
           title="Latency Distribution (ms)"
           height={200}
+          loading={latDistLoading}
         />
       </div>
 
@@ -198,15 +202,15 @@ function AlertRow({ alert }) {
   const severityColors = {
     CRITICAL: 'text-rose',
     HIGH:     'text-amber',
-    MEDIUM:   'text-brand-300',
-    LOW:      'text-slate-400',
+    MEDIUM:   'text-brand-500',
+    LOW:      'text-slate-500',
   }
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-white/[0.04] last:border-0">
       <span className={`text-xs font-semibold w-16 shrink-0 ${severityColors[alert.severity] || 'text-slate-400'}`}>
         {alert.severity}
       </span>
-      <span className="text-xs font-mono text-brand-300 w-24 shrink-0">{alert.model}</span>
+      <span className="text-xs font-mono text-brand-500 w-24 shrink-0">{alert.model}</span>
       <span className="text-xs text-slate-400 flex-1 truncate">
         {alert.metric} — {alert.pct_change > 0 ? '+' : ''}{alert.pct_change?.toFixed(1)}% vs baseline
       </span>

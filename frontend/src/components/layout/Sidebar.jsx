@@ -7,6 +7,7 @@ import {
 import clsx from 'clsx'
 import { useUIStore, useAuthStore } from '@/store'
 import { motion, AnimatePresence } from 'framer-motion'
+import { BrandLogo } from '@/components/shared/ui'
 
 const NAV_ITEMS = [
   { to: '/',           icon: LayoutDashboard, label: 'Overview',         end: true },
@@ -32,27 +33,10 @@ export function Sidebar() {
     >
       {/* Logo */}
       <div className="flex items-center gap-2 px-3.5 h-14 border-b border-slate-200 dark:border-white/[0.06] shrink-0">
-        <motion.img
-          src="/Project_logo.png"
-          className="w-8 h-8 object-contain rounded-md"
-          alt="Project Logo"
-          whileHover={{ scale: 1.08, rotate: 2, filter: 'drop-shadow(0 0 8px rgba(100,112,243,0.4))' }}
-          animate={{ scale: [1, 1.04, 1] }}
-          transition={{
-            animate: { repeat: Infinity, duration: 4, ease: 'easeInOut' },
-            whileHover: { type: 'spring', stiffness: 400, damping: 10 }
-          }}
-        />
-        {!sidebarCollapsed && (
-          <motion.div
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.2 }}
-            className="overflow-hidden leading-tight"
-          >
-            <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate uppercase tracking-wider">Observe</p>
-            <p className="text-[9px] text-slate-500 font-semibold truncate">Cost & Performance</p>
-          </motion.div>
+        {sidebarCollapsed ? (
+          <BrandLogo showText={false} size="sm" className="justify-center w-full" />
+        ) : (
+          <BrandLogo showText={true} showTagline={true} size="md" />
         )}
       </div>
 
@@ -76,7 +60,7 @@ export function Sidebar() {
                 {isActive && (
                   <motion.div
                     layoutId="sidebarActiveBackground"
-                    className="absolute inset-0 bg-brand-500/10 dark:bg-brand-500/15 border-l-2 border-brand-500 rounded-r-lg -z-10"
+                    className="absolute inset-0 sidebar-active-bg -z-10"
                     transition={{ type: 'spring', stiffness: 380, damping: 30 }}
                   />
                 )}

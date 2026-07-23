@@ -9,7 +9,7 @@ import { useFilterStore } from '@/store'
 
 const WORST_COLUMNS = [
   { key: 'run_id',  label: 'Run ID', width: '150px',
-    render: (v) => <span className="font-mono text-xs text-brand-300">{v?.slice(0, 12)}…</span> },
+    render: (v) => <span className="font-mono text-xs text-brand-500">{v?.slice(0, 12)}…</span> },
   { key: 'model',   label: 'Model',  width: '120px',
     render: (v) => <span className="font-mono text-xs">{v}</span> },
   { key: 'score',   label: 'Score',  sortable: true, align: 'right', width: '80px',
@@ -70,6 +70,7 @@ export default function Evaluation() {
           color={CHART_COLORS.violet}
           title="Score Distribution (0–5)"
           height={220}
+          loading={scoresLoading}
         />
         <TrendChart
           data={trend ?? []}
@@ -77,6 +78,7 @@ export default function Evaluation() {
           xKey="date"
           title="Score Trend Over Time"
           height={220}
+          loading={trendLoading}
         />
       </div>
 

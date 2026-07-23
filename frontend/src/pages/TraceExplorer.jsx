@@ -1,18 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Download, Search, X } from 'lucide-react'
 import { Layout } from '@/components/layout/Layout'
-import { Card, SectionHeader, Badge, SeverityBadge } from '@/components/shared/ui'
+import { Card, SectionHeader, StatusBadge } from '@/components/shared/ui'
 import { DataTable } from '@/components/shared/DataTable'
-import { useFilterStore } from '@/store'
+import { useFilterStore, useAuthStore, useUIStore } from '@/store'
 import { tracesService } from '@/api/tracesService'
 import { useApi } from '@/hooks/useApi'
-
-function statusBadge(score) {
-  if (score == null) return <Badge variant="default">—</Badge>
-  if (score <= 1.5) return <Badge variant="ok">OK</Badge>
-  if (score <= 3.0) return <Badge variant="medium">WARN</Badge>
-  return <Badge variant="high">HIGH</Badge>
-}
 
 const COLUMNS = [
   {
@@ -21,7 +14,7 @@ const COLUMNS = [
     sortable: false,
     width: '160px',
     render: (v) => (
-      <span className="font-mono text-xs text-brand-300 truncate block max-w-[140px]" title={v}>
+      <span className="font-mono text-xs text-brand-500 truncate block max-w-[140px]" title={v}>
         {v}
       </span>
     ),
@@ -30,7 +23,7 @@ const COLUMNS = [
     render: (v) => <span className="font-mono text-xs">{v}</span> },
   { key: 'latency_ms', label: 'Latency', sortable: true, align: 'right', width: '100px',
     render: (v) => (
-      <span className={v > 1000 ? 'text-amber' : v > 500 ? 'text-brand-300' : 'text-emerald'}>
+      <span className={v > 1000 ? 'text-amber' : v > 500 ? 'text-brand-500' : 'text-emerald'}>
         {v != null ? `${Math.round(v)}ms` : '—'}
       </span>
     ),
@@ -47,7 +40,12 @@ const COLUMNS = [
   { key: 'hall_score', label: 'Hall. Score', sortable: true, align: 'right', width: '100px',
     render: (v) => <span className="text-xs">{v != null ? v.toFixed(1) : '—'}</span> },
   { key: 'status', label: 'Status', width: '80px',
-    render: (_, row) => statusBadge(row.hall_score) },
+    render: (_, row) => {
+      const score = row.hall_score
+      const status = score == null ? '—' : score <= 1.5 ? 'OK' : score <= 3.0 ? 'WARN' : 'HIGH'
+      return <StatusBadge status={status} />
+    }
+  },
   { key: 'finish_reason', label: 'Finish', width: '90px',
     render: (v) => <span className="text-xs text-slate-500">{v ?? '—'}</span> },
   { key: 'created_at', label: 'Time', sortable: true, width: '140px',
@@ -87,7 +85,14 @@ export default function TraceExplorer() {
     [JSON.stringify(buildParams())]
   )
 
+  const { isGuest } = useAuthStore()
+  const { setAuthModalOpen } = useUIStore()
+
   async function handleExport() {
+    if (isGuest) {
+      setAuthModalOpen(true)
+      return
+    }
     try {
       const blob = await tracesService.exportTraces(buildParams())
       const url = URL.createObjectURL(blob)
@@ -180,6 +185,7 @@ export default function TraceExplorer() {
             onPageChange={setPage}
             onRetry={refetch}
             onRowClick={(row) => setSelectedTraceId(row.run_id)}
+            selectedRowId={selectedTraceId}
             emptyMessage="No traces match the current filters"
           />
         </Card>
@@ -195,110 +201,222 @@ export default function TraceExplorer() {
   )
 }
 
+function CollapsibleSection({ title, count, children, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="border-t border-subtle pt-4 first:border-0">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between w-full text-[10px] uppercase font-extrabold text-slate-500 tracking-widest hover:text-slate-700 dark:hover:text-slate-300 transition-colors focus:outline-none select-none"
+      >
+        <span className="flex items-center gap-2">
+          {title} {count !== undefined && <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[9px] text-slate-400">{count}</span>}
+        </span>
+        <span className="text-[9px] font-bold text-brand-500">{open ? 'Collapse' : 'Expand'}</span>
+      </button>
+      {open && <div className="mt-3 space-y-3">{children}</div>}
+    </div>
+  )
+}
+
+function formatHighlightedJson(data) {
+  if (data == null) return <span className="text-slate-400 font-mono text-[11px]">Empty</span>
+  const str = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+  const lines = str.split('\n')
+  return (
+    <code className="block select-text">
+      {lines.map((line, i) => {
+        const keyMatch = line.match(/^(\s*)"([^"]+)":/)
+        if (keyMatch) {
+          const indent = keyMatch[1]
+          const key = keyMatch[2]
+          const rest = line.substring(keyMatch[0].length)
+          return (
+            <div key={i} className="leading-5">
+              <span className="text-slate-400">{indent}</span>
+              <span className="text-brand-500 font-semibold">{"\"" + key + "\""}</span>:
+              <span className="text-slate-800 dark:text-slate-200">{rest}</span>
+            </div>
+          )
+        }
+        return <div key={i} className="leading-5 text-slate-800 dark:text-slate-200">{line}</div>
+      })}
+    </code>
+  )
+}
+
+function formatHighlightedOutput(data) {
+  if (data == null) return <span className="text-slate-400 font-mono text-[11px]">Empty</span>
+  const str = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
+  const lines = str.split('\n')
+  return (
+    <code className="block select-text">
+      {lines.map((line, i) => {
+        const keyMatch = line.match(/^(\s*)"([^"]+)":/)
+        if (keyMatch) {
+          const indent = keyMatch[1]
+          const key = keyMatch[2]
+          const rest = line.substring(keyMatch[0].length)
+          return (
+            <div key={i} className="leading-5">
+              <span className="text-slate-400">{indent}</span>
+              <span className="text-brand-500 font-semibold">{"\"" + key + "\""}</span>:
+              <span className="text-emerald-700 dark:text-emerald-400 font-medium">{"\"" + rest.replace(/^ "|\s*"$/g, '') + "\""}</span>
+            </div>
+          )
+        }
+        return <div key={i} className="leading-5 text-emerald-700 dark:text-emerald-400 font-medium">{line}</div>
+      })}
+    </code>
+  )
+}
+
 function TraceDetailDrawer({ traceId, onClose }) {
   const { data: trace, loading, error } = useApi(
     () => tracesService.getTrace(traceId),
     [traceId]
   )
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  const parentStart = trace ? new Date(trace.start_time).getTime() : 0
+  const parentEnd = trace ? new Date(trace.end_time).getTime() : 0
+  const parentDuration = Math.max(1, parentEnd - parentStart)
+
   return (
-    <Card className="w-full lg:w-96 shrink-0 p-5 self-stretch flex flex-col gap-4 border-l border-white/[0.08] bg-surface-800 animate-slide-in">
-      <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+    <div className="w-full lg:w-[440px] shrink-0 border-l border-subtle self-stretch flex flex-col backdrop-blur-md bg-white/95 dark:bg-[rgba(11,17,32,0.85)] shadow-2xl relative animate-slide-in overflow-hidden lg:rounded-l-2xl">
+      {/* Sticky Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-subtle bg-slate-50/50 dark:bg-slate-900/50 backdrop-blur-md sticky top-0 z-20 shrink-0">
         <div>
-          <h3 className="text-sm font-semibold text-slate-200">Trace Details</h3>
+          <h3 className="text-sm font-extrabold text-slate-800 dark:text-slate-100">Trace Details</h3>
           <p className="text-[10px] font-mono text-slate-500 mt-0.5">{traceId}</p>
         </div>
-        <button onClick={onClose} className="btn-ghost p-1">
-          <X size={14} />
+        <button onClick={onClose} className="btn-ghost p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
+          <X size={15} />
         </button>
       </div>
 
-      {loading && (
-        <div className="flex-1 flex flex-col justify-center items-center py-12 gap-2 text-slate-500 text-xs">
-          <div className="skeleton h-4 w-28 rounded" />
-          <div className="skeleton h-24 w-full rounded" />
-          <div className="skeleton h-24 w-full rounded" />
-        </div>
-      )}
-
-      {error && (
-        <div className="flex-1 flex items-center justify-center py-12 text-xs text-rose">
-          {error.message || 'Failed to load details'}
-        </div>
-      )}
-
-      {trace && (
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Name</span>
-            <p className="text-slate-300 font-medium mt-0.5">{trace.name || 'inference_pipeline'}</p>
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        {loading && (
+          <div className="flex flex-col justify-center items-center py-12 gap-2 text-slate-500 text-xs">
+            <div className="skeleton h-4 w-28 rounded" />
+            <div className="skeleton h-24 w-full rounded" />
+            <div className="skeleton h-24 w-full rounded" />
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Start Time</span>
-              <p className="text-slate-400 mt-0.5">{new Date(trace.start_time).toLocaleTimeString()}</p>
-            </div>
-            <div>
-              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">End Time</span>
-              <p className="text-slate-400 mt-0.5">{new Date(trace.end_time).toLocaleTimeString()}</p>
-            </div>
+        {error && (
+          <div className="flex items-center justify-center py-12 text-xs text-rose font-medium">
+            {error.message || 'Failed to load details'}
           </div>
+        )}
 
-          <div className="border-t border-white/[0.04] pt-3">
-            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Prompt (Input)</span>
-            <div className="mt-1 p-2 bg-surface-900 rounded font-mono text-[11px] text-slate-300 max-h-40 overflow-y-auto break-words whitespace-pre-wrap">
-              {trace.input_data?.prompt || JSON.stringify(trace.input_data, null, 2)}
-            </div>
-          </div>
-
-          <div className="border-t border-white/[0.04] pt-3">
-            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Response (Output)</span>
-            <div className="mt-1 p-2 bg-surface-900 rounded font-mono text-[11px] text-emerald-400/90 max-h-40 overflow-y-auto break-words whitespace-pre-wrap">
-              {trace.output_data?.response || JSON.stringify(trace.output_data, null, 2)}
-            </div>
-          </div>
-
-          {trace.spans && trace.spans.length > 0 && (
-            <div className="border-t border-white/[0.04] pt-3">
-              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Spans ({trace.spans.length})</span>
-              <div className="space-y-2 mt-1">
-                {trace.spans.map((span) => (
-                  <div key={span.span_id} className="p-2 bg-white/[0.02] rounded border border-white/[0.04]">
-                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                      <span>{span.name}</span>
-                      <span className="text-brand-300">{span.model_name}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] text-slate-500 mt-1">
-                      <span>Tokens: {span.total_tokens}</span>
-                      <span>Cost: ${span.cost?.toFixed(4)}</span>
-                    </div>
-                  </div>
-                ))}
+        {trace && (
+          <div className="space-y-5 text-xs">
+            {/* Overview */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Name</span>
+                <p className="text-slate-800 dark:text-slate-200 font-semibold mt-0.5">{trace.name || 'inference_pipeline'}</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Latency</span>
+                <p className="text-slate-800 dark:text-slate-200 font-semibold mt-0.5">{parentDuration}ms</p>
               </div>
             </div>
-          )}
 
-          {trace.evaluations && trace.evaluations.length > 0 && (
-            <div className="border-t border-white/[0.04] pt-3">
-              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Evaluations ({trace.evaluations.length})</span>
-              <div className="space-y-2 mt-1">
-                {trace.evaluations.map((ev) => (
-                  <div key={ev.id || ev.metric_name} className="p-2 bg-white/[0.02] rounded border border-white/[0.04]">
-                    <div className="flex justify-between items-center text-[10px] text-slate-400">
-                      <span className="capitalize">{ev.metric_name}</span>
-                      <span className="font-semibold text-brand-300">{ev.metric_value?.toFixed(2)}</span>
-                    </div>
-                    {ev.feedback && (
-                      <p className="text-[10px] text-slate-500 mt-1 italic">Feedback: {ev.feedback}</p>
-                    )}
-                  </div>
-                ))}
+            {/* Prompt */}
+            <CollapsibleSection title="Prompt (Input)">
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-subtle font-mono text-[11px] max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                {formatHighlightedJson(trace.input_data?.prompt || trace.input_data)}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-    </Card>
+            </CollapsibleSection>
+
+            {/* Response */}
+            <CollapsibleSection title="Response (Output)">
+              <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-subtle font-mono text-[11px] max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                {formatHighlightedOutput(trace.output_data?.response || trace.output_data)}
+              </div>
+            </CollapsibleSection>
+
+            {/* Spans */}
+            {trace.spans && trace.spans.length > 0 && (
+              <CollapsibleSection title="Spans" count={trace.spans.length}>
+                <div className="space-y-3">
+                  {trace.spans.map((span) => {
+                    const spanStart = new Date(span.start_time || trace.start_time).getTime()
+                    const spanEnd = new Date(span.end_time || trace.end_time).getTime()
+                    const spanDuration = Math.max(1, spanEnd - spanStart)
+                    const relativeStartPct = Math.min(90, ((spanStart - parentStart) / parentDuration) * 100)
+                    const widthPct = Math.min(100 - relativeStartPct, (spanDuration / parentDuration) * 100)
+
+                    return (
+                      <div key={span.span_id} className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-subtle space-y-2">
+                        <div className="flex justify-between items-center text-[10px] font-mono">
+                          <span className="font-semibold text-slate-800 dark:text-slate-300">{span.name}</span>
+                          <span className="text-brand-500 font-bold">{span.model_name}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-slate-500">
+                          <span>Tokens: {span.total_tokens}</span>
+                          <span>Cost: ${span.cost?.toFixed(4)}</span>
+                        </div>
+                        {/* Latency timeline bar */}
+                        <div className="space-y-1">
+                          <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full relative overflow-hidden">
+                            <div
+                              className="absolute h-full bg-brand-500 rounded-full"
+                              style={{ left: `${relativeStartPct}%`, width: `${widthPct}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[9px] text-slate-400 font-semibold">
+                            <span>+{Math.round(spanStart - parentStart)}ms</span>
+                            <span>{spanDuration}ms</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CollapsibleSection>
+            )}
+
+            {/* Evaluations */}
+            {trace.evaluations && trace.evaluations.length > 0 && (
+              <CollapsibleSection title="Evaluations" count={trace.evaluations.length}>
+                <div className="space-y-2">
+                  {trace.evaluations.map((ev) => {
+                    const val = ev.metric_value
+                    const status = val >= 4.0 ? 'HIGH' : val >= 2.5 ? 'WARN' : 'SUCCESS'
+                    return (
+                      <div key={ev.id || ev.metric_name} className="p-3 bg-slate-50 dark:bg-slate-900/30 rounded-xl border border-subtle flex items-center justify-between">
+                        <div>
+                          <span className="capitalize font-bold text-slate-700 dark:text-slate-300">{ev.metric_name}</span>
+                          {ev.feedback && (
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 italic">
+                              Feedback: {ev.feedback}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <span className="font-semibold text-slate-600 dark:text-slate-400 text-[10px]">{val?.toFixed(2)}</span>
+                          <StatusBadge status={status} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CollapsibleSection>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

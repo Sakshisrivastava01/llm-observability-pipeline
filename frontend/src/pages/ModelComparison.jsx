@@ -107,6 +107,7 @@ export default function ModelComparison() {
           title="Latency Comparison"
           subtitle="Avg vs p95"
           height={220}
+          loading={loading}
         />
         <BarChartWidget
           data={(models ?? []).map((m) => ({
@@ -122,6 +123,7 @@ export default function ModelComparison() {
           title="Quality Metrics"
           subtitle="Hallucination score and error rate"
           height={220}
+          loading={loading}
         />
       </div>
     </Layout>

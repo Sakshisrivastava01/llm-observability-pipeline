@@ -31,7 +31,7 @@ export function modelColor(model) {
 
 import { useUIStore } from '@/store'
 
-function ChartWrapper({ title, subtitle, action, height = 240, className, children }) {
+function ChartWrapper({ title, subtitle, action, height = 240, className, loading, children }) {
   return (
     <div className={clsx('card p-5', className)}>
       {(title || action) && (
@@ -43,23 +43,31 @@ function ChartWrapper({ title, subtitle, action, height = 240, className, childr
           {action}
         </div>
       )}
-      <ResponsiveContainer width="100%" height={height}>
-        {children}
-      </ResponsiveContainer>
+      {loading ? (
+        <div className="flex flex-col gap-3 justify-center" style={{ height: `${height - 30}px` }}>
+          <div className="skeleton h-3 w-1/3 rounded opacity-60 animate-pulse" />
+          <div className="skeleton h-24 w-full rounded opacity-40 animate-pulse" />
+          <div className="skeleton h-3 w-1/2 rounded opacity-50 animate-pulse" />
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height={height}>
+          {children}
+        </ResponsiveContainer>
+      )}
     </div>
   )
 }
 
 // ─── Area / Line Trend Chart ──────────────────────────────────────────────────
-export function TrendChart({ data = [], series = [], xKey = 'date', title, subtitle, height = 220 }) {
+export function TrendChart({ data = [], series = [], xKey = 'date', title, subtitle, height = 220, loading }) {
   const { theme } = useUIStore()
   const isDark = theme === 'dark'
 
-  const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
-  const axisColor = isDark ? '#64748b' : '#475569'
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)'
+  const axisColor = isDark ? '#FFFFFF' : '#111827'
   const tooltipStyle = {
-    backgroundColor: isDark ? '#18181b' : '#ffffff',
-    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
+    backgroundColor: isDark ? '#111118' : '#ffffff',
+    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
     borderRadius: '8px',
     boxShadow: 'var(--shadow-md)',
     padding: '8px 12px',
@@ -70,12 +78,12 @@ export function TrendChart({ data = [], series = [], xKey = 'date', title, subti
     marginBottom: '4px',
   }
   const tooltipItemStyle = {
-    color: isDark ? '#e2e8f0' : '#1e293b',
+    color: isDark ? '#FFFFFF' : '#111827',
     fontSize: '12px',
   }
 
   return (
-    <ChartWrapper title={title} subtitle={subtitle} height={height}>
+    <ChartWrapper title={title} subtitle={subtitle} height={height} loading={loading}>
       <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
         <defs>
           {series.map((s) => (
@@ -109,16 +117,16 @@ export function TrendChart({ data = [], series = [], xKey = 'date', title, subti
 }
 
 // ─── Bar Chart ────────────────────────────────────────────────────────────────
-export function BarChartWidget({ data = [], series = [], xKey = 'model', title, subtitle, height = 220, stacked = false }) {
+export function BarChartWidget({ data = [], series = [], xKey = 'model', title, subtitle, height = 220, stacked = false, loading }) {
   const { theme } = useUIStore()
   const isDark = theme === 'dark'
 
-  const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
-  const axisColor = isDark ? '#64748b' : '#475569'
-  const cursorFill = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)'
+  const axisColor = isDark ? '#FFFFFF' : '#111827'
+  const cursorFill = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'
   const tooltipStyle = {
-    backgroundColor: isDark ? '#18181b' : '#ffffff',
-    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
+    backgroundColor: isDark ? '#111118' : '#ffffff',
+    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
     borderRadius: '8px',
     boxShadow: 'var(--shadow-md)',
     padding: '8px 12px',
@@ -129,12 +137,12 @@ export function BarChartWidget({ data = [], series = [], xKey = 'model', title, 
     marginBottom: '4px',
   }
   const tooltipItemStyle = {
-    color: isDark ? '#e2e8f0' : '#1e293b',
+    color: isDark ? '#FFFFFF' : '#111827',
     fontSize: '12px',
   }
 
   return (
-    <ChartWrapper title={title} subtitle={subtitle} height={height}>
+    <ChartWrapper title={title} subtitle={subtitle} height={height} loading={loading}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
         <XAxis dataKey={xKey} tick={{ fill: axisColor, fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -158,16 +166,16 @@ export function BarChartWidget({ data = [], series = [], xKey = 'model', title, 
 }
 
 // ─── Histogram / Distribution ─────────────────────────────────────────────────
-export function HistogramChart({ data = [], dataKey = 'count', xKey = 'bucket', color = CHART_COLORS.brand, title, height = 180 }) {
+export function HistogramChart({ data = [], dataKey = 'count', xKey = 'bucket', color = CHART_COLORS.brand, title, height = 180, loading }) {
   const { theme } = useUIStore()
   const isDark = theme === 'dark'
 
-  const gridColor = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'
-  const axisColor = isDark ? '#64748b' : '#475569'
-  const cursorFill = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'
+  const gridColor = isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)'
+  const axisColor = isDark ? '#FFFFFF' : '#111827'
+  const cursorFill = isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)'
   const tooltipStyle = {
-    backgroundColor: isDark ? '#18181b' : '#ffffff',
-    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
+    backgroundColor: isDark ? '#111118' : '#ffffff',
+    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
     borderRadius: '8px',
     boxShadow: 'var(--shadow-md)',
     padding: '8px 12px',
@@ -178,12 +186,12 @@ export function HistogramChart({ data = [], dataKey = 'count', xKey = 'bucket', 
     marginBottom: '4px',
   }
   const tooltipItemStyle = {
-    color: isDark ? '#e2e8f0' : '#1e293b',
+    color: isDark ? '#FFFFFF' : '#111827',
     fontSize: '12px',
   }
 
   return (
-    <ChartWrapper title={title} height={height}>
+    <ChartWrapper title={title} height={height} loading={loading}>
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
         <XAxis dataKey={xKey} tick={{ fill: axisColor, fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -207,26 +215,26 @@ export function Sparkline({ data = [], dataKey = 'value', color = CHART_COLORS.b
 }
 
 // ─── Donut / Pie ──────────────────────────────────────────────────────────────
-export function DonutChart({ data = [], title, height = 200 }) {
+export function DonutChart({ data = [], title, height = 200, loading }) {
   const { theme } = useUIStore()
   const isDark = theme === 'dark'
 
-  const axisColor = isDark ? '#64748b' : '#475569'
+  const axisColor = isDark ? '#FFFFFF' : '#111827'
   const tooltipStyle = {
-    backgroundColor: isDark ? '#18181b' : '#ffffff',
-    border: isDark ? '1px solid #27272a' : '1px solid #e2e8f0',
+    backgroundColor: isDark ? '#111118' : '#ffffff',
+    border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0',
     borderRadius: '8px',
     boxShadow: 'var(--shadow-md)',
     padding: '8px 12px',
   }
   const tooltipItemStyle = {
-    color: isDark ? '#e2e8f0' : '#1e293b',
+    color: isDark ? '#FFFFFF' : '#111827',
     fontSize: '12px',
   }
 
   const colors = Object.values(CHART_COLORS)
   return (
-    <ChartWrapper title={title} height={height}>
+    <ChartWrapper title={title} height={height} loading={loading}>
       <PieChart>
         <Pie data={data} cx="50%" cy="50%" innerRadius="55%" outerRadius="75%"
           dataKey="value" nameKey="name" paddingAngle={2}>

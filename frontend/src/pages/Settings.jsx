@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Layout } from '@/components/layout/Layout'
 import { Card, SectionHeader, Divider } from '@/components/shared/ui'
 import { Check, Eye, EyeOff } from 'lucide-react'
+import { useAuthStore, useUIStore } from '@/store'
 
 function SettingRow({ label, description, children }) {
   return (
@@ -78,7 +79,14 @@ export default function Settings() {
     setCfg((c) => ({ ...c, [key]: val }))
   }
 
+  const { isGuest } = useAuthStore()
+  const { setAuthModalOpen } = useUIStore()
+
   function handleSave() {
+    if (isGuest) {
+      setAuthModalOpen(true)
+      return
+    }
     localStorage.setItem('llm_center_settings', JSON.stringify(cfg))
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)

@@ -28,6 +28,7 @@ export function DataTable({
   emptyMessage = 'No records found',
   onRetry,
   onRowClick,
+  selectedRowId,
   className,
 }) {
   const [sortKey, setSortKey] = useState(null)
@@ -91,21 +92,25 @@ export function DataTable({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((row, i) => (
-              <tr
-                key={row.id || i}
-                onClick={() => onRowClick?.(row)}
-                className={clsx(
-                  onRowClick && 'cursor-pointer hover:bg-slate-50/50 dark:hover:bg-white/[0.01] active:bg-slate-100/50 dark:active:bg-white/[0.03]'
-                )}
-              >
-                {columns.map((col) => (
-                  <td key={col.key} className={clsx(col.align === 'right' && 'text-right')}>
-                    {col.render ? col.render(row[col.key], row) : row[col.key] ?? '—'}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {sorted.map((row, i) => {
+              const isSelected = selectedRowId && (row.id === selectedRowId || row.run_id === selectedRowId)
+              return (
+                <tr
+                  key={row.id || row.run_id || i}
+                  onClick={() => onRowClick?.(row)}
+                  className={clsx(
+                    onRowClick && 'cursor-pointer transition-all duration-150',
+                    isSelected && 'selected-row-active'
+                  )}
+                >
+                  {columns.map((col) => (
+                    <td key={col.key} className={clsx(col.align === 'right' && 'text-right')}>
+                      {col.render ? col.render(row[col.key], row) : row[col.key] ?? '—'}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

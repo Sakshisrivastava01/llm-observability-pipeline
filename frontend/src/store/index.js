@@ -61,17 +61,24 @@ export const useAuthStore = create(
       user: null,
       token: null,
       isAuthenticated: false,
+      isGuest: false,
 
-      login: (user, token) => set({ user, token, isAuthenticated: true }),
+      login: (user, token) => set({ user, token, isAuthenticated: true, isGuest: false }),
+      loginAsGuest: () => set({
+        user: { id: 'guest-user', email: 'guest@costlense.ai', name: 'Guest User' },
+        token: 'guest-jwt-mock-token',
+        isAuthenticated: true,
+        isGuest: true,
+      }),
       logout: () => {
         localStorage.removeItem('auth_token')
-        set({ user: null, token: null, isAuthenticated: false })
+        set({ user: null, token: null, isAuthenticated: false, isGuest: false })
       },
       setUser: (user) => set({ user }),
     }),
     {
       name: 'auth-store',
-      partialize: (s) => ({ user: s.user, token: s.token, isAuthenticated: s.isAuthenticated }),
+      partialize: (s) => ({ user: s.user, token: s.token, isAuthenticated: s.isAuthenticated, isGuest: s.isGuest }),
     }
   )
 )
@@ -85,6 +92,9 @@ export const useUIStore = create((set) => {
     sidebarCollapsed: initialSidebar,
     theme: initialTheme,
     notifications: [],
+    authModalOpen: false,
+
+    setAuthModalOpen: (open) => set({ authModalOpen: open }),
 
     toggleSidebar: () =>
       set((s) => {

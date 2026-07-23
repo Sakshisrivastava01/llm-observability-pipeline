@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Layout } from '@/components/layout/Layout'
-import { Card, SectionHeader, StatRow } from '@/components/shared/ui'
+import { Card, SectionHeader, StatRow, ErrorState } from '@/components/shared/ui'
 import { TrendChart, BarChartWidget, DonutChart, CHART_COLORS, modelColor } from '@/components/shared/charts'
 import { useApi } from '@/hooks/useApi'
 import { analyticsService } from '@/api/analyticsService'
@@ -9,17 +9,17 @@ import { useFilterStore } from '@/store'
 export default function Analytics() {
   const { queryParams } = useFilterStore()
 
-  const { data: advanced, loading } = useApi(
+  const { data: advanced, loading: advancedLoading, error: advancedError, refetch: refetchAdvanced } = useApi(
     () => analyticsService.getAdvanced(queryParams),
     [JSON.stringify(queryParams)]
   )
 
-  const { data: models } = useApi(
+  const { data: models, loading: modelsLoading, error: modelsError, refetch: refetchModels } = useApi(
     () => analyticsService.getModelComparison(queryParams),
     [JSON.stringify(queryParams)]
   )
 
-  const { data: trends } = useApi(
+  const { data: trends, loading: trendsLoading, error: trendsError, refetch: refetchTrends } = useApi(
     () => analyticsService.getTrends(queryParams),
     [JSON.stringify(queryParams)]
   )
@@ -43,8 +43,19 @@ export default function Analytics() {
     (models ?? []).map((m) => ({ name: m.model, value: m.calls })),
   [models])
 
+  const hasError = advancedError || modelsError || trendsError
+  const handleRetry = () => {
+    refetchAdvanced()
+    refetchModels()
+    refetchTrends()
+  }
+
   return (
     <Layout title="Analytics" subtitle="Deep-dive cost, latency, and token efficiency">
+      {hasError && (
+        <ErrorState error={advancedError || modelsError || trendsError} onRetry={handleRetry} className="mb-6" />
+      )}
+
       {/* Cost + Latency Percentiles */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <TrendChart
@@ -53,6 +64,7 @@ export default function Analytics() {
           xKey="date"
           title="Cost Over Time (USD)"
           height={200}
+          loading={trendsLoading}
         />
         <BarChartWidget
           data={models ?? []}
@@ -60,6 +72,7 @@ export default function Analytics() {
           xKey="model"
           title="Latency Percentiles by Model"
           height={200}
+          loading={modelsLoading}
         />
       </div>
 
@@ -71,11 +84,13 @@ export default function Analytics() {
           xKey="date"
           title="Token Usage Over Time"
           height={200}
+          loading={trendsLoading}
         />
         <DonutChart
           data={modelDonutData}
           title="Call Share by Model"
           height={200}
+          loading={modelsLoading}
         />
       </div>
 
@@ -95,7 +110,7 @@ export default function Analytics() {
               </tr>
             </thead>
             <tbody>
-              {loading
+              {advancedLoading || modelsLoading
                 ? Array.from({ length: 4 }).map((_, i) => (
                     <tr key={i}>
                       {Array.from({ length: 7 }).map((_, j) => (
@@ -108,7 +123,7 @@ export default function Analytics() {
                       <td>
                         <div className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: modelColor(m.model) }} />
-                          <span className="font-mono text-xs text-brand-300">{m.model}</span>
+                          <span className="font-mono text-xs text-brand-500">{m.model}</span>
                         </div>
                       </td>
                       <td>{m.calls?.toLocaleString() ?? '—'}</td>

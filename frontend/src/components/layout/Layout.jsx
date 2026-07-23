@@ -1,6 +1,7 @@
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { PageTransition } from './PageTransition'
+import { AuthRequiredModal } from '@/components/shared/AuthRequiredModal'
 
 export function Layout({ children, title, subtitle, showFilters }) {
   return (
@@ -14,6 +15,7 @@ export function Layout({ children, title, subtitle, showFilters }) {
           </PageTransition>
         </main>
       </div>
+      <AuthRequiredModal />
     </div>
   )
 }

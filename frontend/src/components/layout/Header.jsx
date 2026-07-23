@@ -14,7 +14,8 @@ export function Header({ title, subtitle, showFilters = true }) {
     notifications,
     markAsRead,
     markAllAsRead,
-    clearAllNotifications
+    clearAllNotifications,
+    setAuthModalOpen
   } = useUIStore()
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
@@ -22,6 +23,43 @@ export function Header({ title, subtitle, showFilters = true }) {
   const [healthStatus, setHealthStatus] = useState('connecting')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+
+  // Escape key handler to close menus/drawers
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setProfileOpen(false)
+        setDrawerOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
+  const handleGuestProtectedNavigation = (path) => {
+    setProfileOpen(false)
+    if (useAuthStore.getState().isGuest) {
+      setAuthModalOpen(true)
+      return
+    }
+    navigate(path)
+  }
+
+  const handleMarkAllRead = () => {
+    if (useAuthStore.getState().isGuest) {
+      setAuthModalOpen(true)
+      return
+    }
+    markAllAsRead()
+  }
+
+  const handleClearAll = () => {
+    if (useAuthStore.getState().isGuest) {
+      setAuthModalOpen(true)
+      return
+    }
+    clearAllNotifications()
+  }
 
   // ─── Live health status polling ───────────────────────────────────────────
   useEffect(() => {
@@ -133,27 +171,21 @@ export function Header({ title, subtitle, showFilters = true }) {
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.95, y: -10 }}
                       transition={{ duration: 0.15, ease: 'easeOut' }}
-                      className="absolute right-0 mt-2 w-48 rounded-xl card bg-white dark:bg-surface-700 shadow-lg border border-slate-200 dark:border-white/[0.08] py-1 z-50"
+                      className="absolute right-0 mt-2 w-48 rounded-xl card shadow-lg py-1 z-50"
                     >
                       <div className="px-4 py-2 border-b border-slate-100 dark:border-white/[0.04]">
                         <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{user?.name}</p>
                         <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">{user?.email}</p>
                       </div>
                       <button
-                        onClick={() => {
-                          setProfileOpen(false)
-                          navigate('/settings')
-                        }}
+                        onClick={() => handleGuestProtectedNavigation('/settings')}
                         className="w-full flex items-center gap-2 px-4 py-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 text-left transition-colors duration-150"
                       >
                         <User size={13} />
                         <span>Profile</span>
                       </button>
                       <button
-                        onClick={() => {
-                          setProfileOpen(false)
-                          navigate('/settings')
-                        }}
+                        onClick={() => handleGuestProtectedNavigation('/settings')}
                         className="w-full flex items-center gap-2 px-4 py-2 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 text-left transition-colors duration-150"
                       >
                         <SettingsIcon size={13} />
@@ -219,7 +251,7 @@ export function Header({ title, subtitle, showFilters = true }) {
                 <div className="flex items-center gap-3">
                   {notifications.length > 0 && (
                     <button
-                      onClick={markAllAsRead}
+                      onClick={handleMarkAllRead}
                       className="text-[10px] text-brand-600 dark:text-brand-300 hover:underline font-semibold"
                     >
                       Mark all read
@@ -289,7 +321,7 @@ export function Header({ title, subtitle, showFilters = true }) {
               {notifications.length > 0 && (
                 <div className="p-3 border-t border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-surface-900/30 text-center">
                   <button
-                    onClick={clearAllNotifications}
+                    onClick={handleClearAll}
                     className="text-[10px] text-rose font-bold hover:underline"
                   >
                     Clear all notifications

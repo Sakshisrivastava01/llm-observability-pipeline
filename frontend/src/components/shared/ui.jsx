@@ -312,3 +312,6 @@ export function ProgressBar({ value, max = 100, colorClass = 'bg-brand-500', cla
     </div>
   )
 }
+
+export { BrandLogo } from './BrandLogo'
+export { StatusBadge } from './StatusBadge'

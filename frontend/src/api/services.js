@@ -93,6 +93,13 @@ export const modelsService = {
  */
 export const authService = {
   /**
+   * POST /api/v1/auth/register
+   */
+  register(userData) {
+    return apiClient.post('/auth/register', userData)
+  },
+
+  /**
    * POST /api/v1/auth/login
    */
   login(credentials) {

@@ -12,7 +12,7 @@ export default {
           200: '#c7d7fe',
           300: '#a5b9fc',
           400: '#8193f8',
-          500: '#6470f3',
+          500: 'var(--brand-default)',
           600: '#4f54e7',
           700: '#4241cf',
           800: '#3637a7',
@@ -29,12 +29,12 @@ export default {
           300: 'var(--border-color)',
         },
         sidebar: 'var(--bg-sidebar)',
-        // Accent tokens
-        cyan:    { DEFAULT: '#22d3ee', dim: '#0e7490' },
-        emerald: { DEFAULT: '#34d399', dim: '#065f46' },
-        amber:   { DEFAULT: '#fbbf24', dim: '#92400e' },
-        rose:    { DEFAULT: '#fb7185', dim: '#9f1239' },
-        violet:  { DEFAULT: '#a78bfa', dim: '#4c1d95' },
+        // Accent tokens mapped dynamically to CSS variables
+        cyan:    { DEFAULT: 'var(--cyan-default)', dim: 'var(--cyan-dim)' },
+        emerald: { DEFAULT: 'var(--emerald-default)', dim: 'var(--emerald-dim)' },
+        amber:   { DEFAULT: 'var(--amber-default)', dim: 'var(--amber-dim)' },
+        rose:    { DEFAULT: 'var(--rose-default)', dim: 'var(--rose-dim)' },
+        violet:  { DEFAULT: 'var(--violet-default)', dim: 'var(--violet-dim)' },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

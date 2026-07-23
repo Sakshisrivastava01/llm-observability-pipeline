@@ -19,7 +19,7 @@ def send_password_reset_email(to_email: str, otp: str) -> bool:
     message = Mail(
         from_email=settings.SENDGRID_FROM_EMAIL,
         to_emails=to_email,
-        subject="Reset your LLM Observe password",
+        subject="Reset your CostLense password",
         html_content=f"""
         <p>You requested to reset your password.</p>
         <p>Your OTP is: <strong>{otp}</strong></p>

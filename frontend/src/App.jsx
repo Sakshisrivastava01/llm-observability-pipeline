@@ -13,6 +13,7 @@ const Evaluation     = lazy(() => import('@/pages/Evaluation'))
 const ModelComparison = lazy(() => import('@/pages/ModelComparison'))
 const Settings       = lazy(() => import('@/pages/Settings'))
 const Login          = lazy(() => import('@/pages/Login'))
+const Signup         = lazy(() => import('@/pages/Signup'))
 const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'))
 const ResetPassword  = lazy(() => import('@/pages/ResetPassword'))
 
@@ -68,6 +69,7 @@ export default function App() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
