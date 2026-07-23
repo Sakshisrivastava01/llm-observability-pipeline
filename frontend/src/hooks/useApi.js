@@ -7,10 +7,20 @@ import { useState, useEffect, useCallback, useRef } from 'react'
  * @param {Object} options
  */
 export function useApi(fetchFn, deps = [], options = {}) {
-  const { immediate = true, onSuccess, onError } = options
+  const { immediate = true, onSuccess, onError, cacheKey } = options
 
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(immediate)
+  const [data, setData] = useState(() => {
+    if (cacheKey) {
+      try {
+        const cached = localStorage.getItem(cacheKey)
+        if (cached) return JSON.parse(cached)
+      } catch (e) {
+        console.warn('Failed to parse cache for', cacheKey, e)
+      }
+    }
+    return null
+  })
+  const [loading, setLoading] = useState(immediate && !data)
   const [error, setError] = useState(null)
   const mountedRef = useRef(true)
 
@@ -26,6 +36,13 @@ export function useApi(fetchFn, deps = [], options = {}) {
       const result = await fetchFn(...args)
       if (mountedRef.current) {
         setData(result)
+        if (cacheKey && result) {
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(result))
+          } catch (e) {
+            console.warn('Failed to save cache for', cacheKey, e)
+          }
+        }
         onSuccess?.(result)
       }
       return result

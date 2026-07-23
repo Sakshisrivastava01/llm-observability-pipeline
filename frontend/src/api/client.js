@@ -220,11 +220,16 @@ apiClient.interceptors.response.use(
   async (error) => {
     const config = error.config
     const isAuth = config?.url?.includes('/auth') || config?.url?.includes('/login')
-    const isNetworkError = error.message === 'Network Error' || !error.response
-    const is503 = error.response?.status === 503
+    
+    const status = error.response?.status
+    const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout')
+    const isNetworkError = error.message === 'Network Error' || !error.response || error.code === 'ERR_NETWORK'
+    const isRetryableStatus = status === 502 || status === 503 || status === 504
 
-    // Auto-retry on Network Error or 503 (up to 3 times with exponential backoff)
-    if ((is503 || isNetworkError) && config && !isAuth) {
+    const shouldRetry = (isNetworkError || isTimeout || isRetryableStatus) && config && !isAuth
+
+    // Auto-retry on network errors, timeout, or 502/503/504 (up to 3 times with exponential backoff: 2s, 4s, 8s)
+    if (shouldRetry) {
       if (!config._retryCount) {
         config._retryCount = 1
       } else {
@@ -232,12 +237,12 @@ apiClient.interceptors.response.use(
       }
 
       if (config._retryCount <= 3) {
-        const delay = config._retryCount * 3000 // 3s, 6s, 9s retry delay
-        console.log(`Connection issue (503/Network). Retrying in ${delay / 1000}s (attempt ${config._retryCount}/3)...`)
+        const delay = Math.pow(2, config._retryCount) * 1000 // 2s, 4s, 8s backoff
+        console.log(`Connection issue (status ${status}/Network). Retrying in ${delay / 1000}s (attempt ${config._retryCount}/3)...`)
         try {
           useUIStore.getState().addNotification({
             title: 'Connecting to Server',
-            message: `Backend is starting. Retrying in ${delay / 1000}s (attempt ${config._retryCount}/3)...`,
+            message: `Retrying connection... Attempt ${config._retryCount}/3`,
             type: 'info'
           })
         } catch (e) {

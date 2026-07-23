@@ -34,16 +34,16 @@ export default function Overview() {
   }, [])
 
   const { data: kpis, loading: kpisLoading, error: kpisError, refetch: refetchKpis } =
-    useApi(() => analyticsService.getKPIs(queryParams), [JSON.stringify(queryParams), refreshKey])
+    useApi(() => analyticsService.getKPIs(queryParams), [JSON.stringify(queryParams), refreshKey], { cacheKey: 'costlense_cache_kpis' })
 
   const { data: trends, loading: trendsLoading } =
-    useApi(() => analyticsService.getTrends(queryParams), [JSON.stringify(queryParams), refreshKey])
+    useApi(() => analyticsService.getTrends(queryParams), [JSON.stringify(queryParams), refreshKey], { cacheKey: 'costlense_cache_trends' })
 
   const { data: models, loading: modelsLoading } =
-    useApi(() => analyticsService.getModelComparison(queryParams), [JSON.stringify(queryParams), refreshKey])
+    useApi(() => analyticsService.getModelComparison(queryParams), [JSON.stringify(queryParams), refreshKey], { cacheKey: 'costlense_cache_models' })
 
   const { data: latDist, loading: latDistLoading } =
-    useApi(() => analyticsService.getLatencyDistribution(queryParams), [JSON.stringify(queryParams), refreshKey])
+    useApi(() => analyticsService.getLatencyDistribution(queryParams), [JSON.stringify(queryParams), refreshKey], { cacheKey: 'costlense_cache_latdist' })
 
   const trendSeries = useMemo(() => [
     { key: 'calls', label: 'Calls', color: CHART_COLORS.brand },

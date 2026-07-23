@@ -2,6 +2,7 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { PageTransition } from './PageTransition'
 import { AuthRequiredModal } from '@/components/shared/AuthRequiredModal'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export function Layout({ children, title, subtitle, showFilters }) {
   return (
@@ -11,7 +12,9 @@ export function Layout({ children, title, subtitle, showFilters }) {
         <Header title={title} subtitle={subtitle} showFilters={showFilters} />
         <main className="flex-1 overflow-y-auto p-6">
           <PageTransition>
-            {children}
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
           </PageTransition>
         </main>
       </div>

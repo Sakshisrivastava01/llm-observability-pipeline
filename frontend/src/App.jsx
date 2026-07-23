@@ -54,14 +54,30 @@ export default function App() {
   // Bootstrap: fetch available model list once
   useEffect(() => {
     if (!isAuthenticated) return
+    
+    // load initial models from cache if present to speed up filter rendering
+    try {
+      const cached = localStorage.getItem('costlense_cache_models_list')
+      if (cached) {
+        setAvailableModels(JSON.parse(cached))
+      }
+    } catch (e) {
+      console.warn(e)
+    }
+
     modelsService.getModels()
       .then((res) => {
         const list = res?.map?.((m) => m.model || m) ?? []
         setAvailableModels(list)
+        try {
+          localStorage.setItem('costlense_cache_models_list', JSON.stringify(list))
+        } catch (e) {
+          console.warn(e)
+        }
       })
       .catch(() => {
-        // fallback: use defaults
-        setAvailableModels(['mistral', 'gpt-4o-mini', 'llama3'])
+        // fallback to defaults if cache is empty
+        setAvailableModels((curr) => curr.length > 0 ? curr : ['mistral', 'gpt-4o-mini', 'llama3'])
       })
   }, [isAuthenticated, setAvailableModels])
 

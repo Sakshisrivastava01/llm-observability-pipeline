@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import httpx
+import structlog
 from app.api.v1.endpoints import router as api_router
 from app.core.config import settings
 from app.core.middleware import CorrelationMiddleware
@@ -10,6 +11,8 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
+
+logger = structlog.get_logger("app")
 
 
 @asynccontextmanager
@@ -69,18 +72,20 @@ def get_cors_headers(request: Request) -> dict[str, str]:
 async def sqlalchemy_exception_handler(
     request: Request, exc: SQLAlchemyError
 ) -> Response:
+    logger.exception("Database error occurred during request", error=str(exc))
     return JSONResponse(
         status_code=400,
-        content={"detail": f"Database integrity error: {str(exc)}"},
+        content={"detail": "Database connection or integrity constraint violation."},
         headers=get_cors_headers(request),
     )
 
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception) -> Response:
+    logger.exception("Generic server error occurred during request", error=str(exc))
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal server error: {str(exc)}"},
+        content={"detail": "An internal server error occurred."},
         headers=get_cors_headers(request),
     )
 
