@@ -63,13 +63,19 @@ export const useAuthStore = create(
       isAuthenticated: false,
       isGuest: false,
 
-      login: (user, token) => set({ user, token, isAuthenticated: true, isGuest: false }),
-      loginAsGuest: () => set({
-        user: { id: 'guest-user', email: 'guest@costlense.ai', name: 'Guest User' },
-        token: 'guest-jwt-mock-token',
-        isAuthenticated: true,
-        isGuest: true,
-      }),
+      login: (user, token) => {
+        if (token) localStorage.setItem('auth_token', token)
+        set({ user, token, isAuthenticated: true, isGuest: false })
+      },
+      loginAsGuest: () => {
+        localStorage.setItem('auth_token', 'guest-jwt-mock-token')
+        set({
+          user: { id: 'guest-user', email: 'guest@costlense.ai', name: 'Guest User' },
+          token: 'guest-jwt-mock-token',
+          isAuthenticated: true,
+          isGuest: true,
+        })
+      },
       logout: () => {
         localStorage.removeItem('auth_token')
         set({ user: null, token: null, isAuthenticated: false, isGuest: false })

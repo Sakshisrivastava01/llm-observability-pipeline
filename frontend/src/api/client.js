@@ -19,6 +19,16 @@ function getGuestMockResponse(config) {
     return { status: 'healthy' }
   }
   
+  if (url.includes('/auth/me')) {
+    return {
+      id: 'guest-user',
+      email: 'guest@costlense.ai',
+      name: 'Guest User',
+      is_active: true,
+      created_at: new Date().toISOString()
+    }
+  }
+  
   if (url.includes('/analytics/kpis')) {
     return {
       total_calls: 14250,
@@ -193,8 +203,8 @@ apiClient.interceptors.request.use(
       console.warn('Guest intercept error', e)
     }
 
-    const token = localStorage.getItem('auth_token')
-    if (token) {
+    const token = useAuthStore.getState().token || localStorage.getItem('auth_token')
+    if (token && token !== 'undefined' && token !== 'null') {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
@@ -233,19 +243,22 @@ apiClient.interceptors.response.use(
       }
     }
 
-    let message = 'An unexpected error occurred'
+    let message = 'An unexpected error occurred. Please try again.'
     if (error.response?.status === 503) {
-      message = 'Service starting up, retrying in 10s...'
+      message = 'Backend is starting. Retrying in 10s...'
+    } else if (error.response?.status === 401) {
+      message = 'Your session has expired. Please sign in again.'
+    } else if (error.response?.status === 500) {
+      message = 'Unable to load dashboard. Please try again.'
     } else if (error.response?.status === 404) {
-      message = `Endpoint not found: ${config?.url || 'unknown endpoint'}`
+      message = 'Endpoint not found. Please try again.'
     } else if (error.message === 'Network Error' || !error.response) {
-      message = 'Backend is waking up, please wait...'
+      message = 'Unable to connect. Backend is starting, please wait...'
     } else {
       message =
         error.response?.data?.detail ||
         error.response?.data?.message ||
-        error.message ||
-        'An unexpected error occurred'
+        'An unexpected error occurred. Please try again.'
     }
 
     const normalised = {
@@ -255,9 +268,22 @@ apiClient.interceptors.response.use(
     }
 
     // Redirect to login on 401
-    if (error.response?.status === 401) {
-      console.error('401 Unauthorized', error.response);
-      return Promise.reject(error)
+    if (error.response?.status === 401 && !isAuth) {
+      console.error('401 Unauthorized', error.response)
+      useAuthStore.getState().logout()
+      
+      try {
+        useUIStore.getState().addNotification({
+          title: 'Session Expired',
+          message: 'Your session has expired. Please sign in again.',
+          type: 'error'
+        })
+      } catch (e) {
+        console.warn(e)
+      }
+      
+      window.location.href = '/login'
+      return Promise.reject(normalised)
     }
 
     // Dispatch error notification to the drawer

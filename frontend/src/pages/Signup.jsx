@@ -388,9 +388,9 @@ export default function Signup() {
     setTimeout(async () => {
       setLoading(false)
       try {
-        const response = await authService.login({ username: email, password })
-        login(response.user, response.token)
-        localStorage.setItem('auth_token', response.token)
+        const response = await authService.login({ email, password })
+        login(response.user, response.access_token)
+        localStorage.setItem('auth_token', response.access_token)
       } catch (err) {
         console.error("Auto login failed after registration", err)
       }
