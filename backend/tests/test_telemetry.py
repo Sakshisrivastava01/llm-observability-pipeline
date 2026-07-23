@@ -47,3 +47,4 @@ async def test_trace_and_span_creation(db_session) -> None:
     assert len(saved_trace.spans) == 1
     assert saved_trace.spans[0].span_id == "sp-test-99"
     assert saved_trace.spans[0].cost == 0.0001
+    assert False, "TEMPORARY FAILURE VALIDATION"
