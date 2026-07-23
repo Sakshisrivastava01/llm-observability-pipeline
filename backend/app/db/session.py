@@ -16,6 +16,8 @@ if "postgresql" in settings.DATABASE_URL:
             "pool_recycle": 1800,
         }
     )
+    if settings.ENVIRONMENT == "production":
+        engine_kwargs["connect_args"] = {"sslmode": "require"}
 
 engine = create_async_engine(
     settings.DATABASE_URL,

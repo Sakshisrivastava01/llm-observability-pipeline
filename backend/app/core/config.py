@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     )
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "noreply@company.com"
+    CORS_ORIGINS: str = (
+        "https://llm-observability-pipeline-ten.vercel.app,"
+        "https://llm-observability-pipeline.vercel.app,"
+        "http://localhost:5173,"
+        "http://localhost:3000"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

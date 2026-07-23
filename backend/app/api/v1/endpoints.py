@@ -1556,7 +1556,10 @@ async def get_worst_responses(
 
 
 @router.get("/models", response_model=list[str])
-async def get_tracked_models(db: AsyncSession = Depends(get_db)) -> list[str]:
+async def get_tracked_models(
+    response: Response, db: AsyncSession = Depends(get_db)
+) -> list[str]:
+    response.headers["Cache-Control"] = "public, max-age=3600"
     from app.models.pricing import ModelPricing
 
     stmt = select(ModelPricing.model_name).distinct()

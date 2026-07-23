@@ -3,6 +3,7 @@ from typing import AsyncGenerator
 
 import httpx
 from app.api.v1.endpoints import router as api_router
+from app.core.config import settings
 from app.core.middleware import CorrelationMiddleware
 from app.core.rate_limiter import RateLimiterMiddleware
 from fastapi import FastAPI, Request, Response
@@ -24,14 +25,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+if not origins:
+    origins = [
         "https://llm-observability-pipeline-ten.vercel.app",
         "https://llm-observability-pipeline.vercel.app",
         "http://localhost:5173",
         "http://localhost:3000",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
