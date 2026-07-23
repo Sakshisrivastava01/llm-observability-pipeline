@@ -17,7 +17,7 @@ if "postgresql" in settings.DATABASE_URL:
         }
     )
     if settings.ENVIRONMENT == "production":
-        engine_kwargs["connect_args"] = {"sslmode": "require"}
+        engine_kwargs["connect_args"] = {"ssl": True}
 
 engine = create_async_engine(
     settings.DATABASE_URL,

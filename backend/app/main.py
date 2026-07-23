@@ -47,6 +47,24 @@ app.add_middleware(RateLimiterMiddleware, max_requests=120)
 app.include_router(api_router, prefix="/api/v1")
 
 
+def get_cors_headers(request: Request) -> dict[str, str]:
+    origin = request.headers.get("origin")
+    origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+    if not origins:
+        origins = [
+            "https://llm-observability-pipeline-ten.vercel.app",
+            "https://llm-observability-pipeline.vercel.app",
+            "http://localhost:5173",
+            "http://localhost:3000",
+        ]
+    if origin in origins:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+        }
+    return {}
+
+
 @app.exception_handler(SQLAlchemyError)
 async def sqlalchemy_exception_handler(
     request: Request, exc: SQLAlchemyError
@@ -54,6 +72,7 @@ async def sqlalchemy_exception_handler(
     return JSONResponse(
         status_code=400,
         content={"detail": f"Database integrity error: {str(exc)}"},
+        headers=get_cors_headers(request),
     )
 
 
@@ -62,6 +81,7 @@ async def generic_exception_handler(request: Request, exc: Exception) -> Respons
     return JSONResponse(
         status_code=500,
         content={"detail": f"Internal server error: {str(exc)}"},
+        headers=get_cors_headers(request),
     )
 
 

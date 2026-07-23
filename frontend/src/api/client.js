@@ -220,28 +220,30 @@ apiClient.interceptors.response.use(
   async (error) => {
     const config = error.config
     const isAuth = config?.url?.includes('/auth') || config?.url?.includes('/login')
+    const isNetworkError = error.message === 'Network Error' || !error.response
+    const is503 = error.response?.status === 503
 
-    // 503 Auto-retry (up to 3 times, waiting 10 seconds between attempts)
-    if (error.response?.status === 503 && config && !isAuth) {
-      if (!config._retry) {
-        config._retry = true
+    // Auto-retry on Network Error or 503 (up to 3 times with exponential backoff)
+    if ((is503 || isNetworkError) && config && !isAuth) {
+      if (!config._retryCount) {
         config._retryCount = 1
       } else {
         config._retryCount += 1
       }
 
       if (config._retryCount <= 3) {
-        console.log(`Service unavailable (503). Retrying in 10s (attempt ${config._retryCount}/3)...`)
+        const delay = config._retryCount * 3000 // 3s, 6s, 9s retry delay
+        console.log(`Connection issue (503/Network). Retrying in ${delay / 1000}s (attempt ${config._retryCount}/3)...`)
         try {
           useUIStore.getState().addNotification({
-            title: 'Service Waking Up',
-            message: `Observability database starting up. Retrying attempt ${config._retryCount}/3...`,
+            title: 'Connecting to Server',
+            message: `Backend is starting. Retrying in ${delay / 1000}s (attempt ${config._retryCount}/3)...`,
             type: 'info'
           })
         } catch (e) {
           console.warn(e)
         }
-        await new Promise((resolve) => setTimeout(resolve, 10000))
+        await new Promise((resolve) => setTimeout(resolve, delay))
         return apiClient(config)
       }
     }
