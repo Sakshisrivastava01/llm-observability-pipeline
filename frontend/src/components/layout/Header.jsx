@@ -88,12 +88,12 @@ export function Header({ title, subtitle, showFilters = true }) {
   const unreadCount = notifications.filter((n) => !n.read).length
 
   return (
-    <header className="shrink-0 border-b border-slate-200 dark:border-white/[0.06] bg-white/80 dark:bg-surface-800/50 backdrop-blur-sm relative z-30 transition-colors duration-200">
+    <header className="shrink-0 premium-header relative z-30">
       <div className="flex items-center justify-between px-6 h-14">
         {/* Page title */}
         <div>
-          <h1 className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</h1>
-          {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+          <h1 className="text-sm font-semibold text-slate-800 dark:text-white">{title}</h1>
+          {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
         </div>
 
         {/* Right actions */}
@@ -101,9 +101,9 @@ export function Header({ title, subtitle, showFilters = true }) {
           {/* Live indicator */}
           <div className={clsx(
             "flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all duration-300",
-            healthStatus === 'live' ? "bg-emerald/10 border-emerald/20 text-emerald-600 dark:text-emerald shadow-[0_0_8px_rgba(16,185,129,0.1)]"
-            : healthStatus === 'connecting' ? "bg-amber/10 border-amber/20 text-amber-600 dark:text-amber shadow-[0_0_8px_rgba(245,158,11,0.1)]"
-            : "bg-rose/10 border-rose/20 text-rose shadow-[0_0_8px_rgba(244,63,94,0.1)]"
+            healthStatus === 'live' ? "bg-emerald/10 border-emerald/20 dark:bg-[rgba(16,185,129,0.12)] dark:border-[rgba(16,185,129,0.35)] text-emerald-600 dark:text-[#34D399] shadow-[0_0_8px_rgba(16,185,129,0.1)]"
+            : healthStatus === 'connecting' ? "bg-amber/10 border-amber/20 dark:bg-[rgba(245,158,11,0.12)] dark:border-[rgba(245,158,11,0.35)] text-amber-600 dark:text-[#FBBF24] shadow-[0_0_8px_rgba(245,158,11,0.1)]"
+            : "bg-rose/10 border-rose/20 dark:bg-[rgba(244,63,94,0.12)] dark:border-[rgba(244,63,94,0.35)] text-rose dark:text-[#FB7185] shadow-[0_0_8px_rgba(244,63,94,0.1)]"
           )}>
             <span className={clsx(
               "status-dot",
@@ -121,7 +121,7 @@ export function Header({ title, subtitle, showFilters = true }) {
           {/* Theme toggle */}
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="btn-ghost p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 overflow-hidden relative"
+            className="header-action-btn w-8 h-8 overflow-hidden relative"
             title="Toggle theme"
           >
             <AnimatePresence mode="wait" initial={false}>
@@ -141,7 +141,7 @@ export function Header({ title, subtitle, showFilters = true }) {
           <div className="relative">
             <button
               onClick={() => setDrawerOpen(true)}
-              className="btn-ghost p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 relative bell-ring"
+              className="header-action-btn w-8 h-8 relative bell-ring"
               title="Notifications"
             >
               <Bell size={15} />

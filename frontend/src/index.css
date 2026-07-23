@@ -389,3 +389,90 @@
   0%, 100% { transform: translateY(-5px); }
   50% { transform: translateY(5px); }
 }
+
+/* Premium Header Navigation System */
+.premium-header {
+  background: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  transition: all 200ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.dark .premium-header {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(10, 15, 25, 0.88)) !important;
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4), inset 0 0 100px rgba(59, 130, 246, 0.03) !important;
+}
+
+/* Header action button animations */
+.header-action-btn {
+  @apply rounded-lg flex items-center justify-center transition-all duration-200;
+  background-color: transparent;
+  color: #64748B;
+}
+.header-action-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #0F172A;
+}
+.dark .header-action-btn {
+  color: #94A3B8;
+}
+.dark .header-action-btn:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #F8FAFC;
+}
+
+/* Filter chips theme adjustments */
+.filter-chip {
+  @apply px-2.5 py-1 rounded-full text-xs font-medium border transition-all duration-150;
+  background-color: #F1F5F9;
+  color: #475569;
+  border-color: #E2E8F0;
+}
+.filter-chip:hover {
+  background-color: rgba(59, 130, 246, 0.08);
+  border-color: #3B82F6;
+  color: #2563EB;
+}
+.filter-chip.active {
+  background-color: #2563EB !important;
+  color: #FFFFFF !important;
+  border-color: #2563EB !important;
+}
+
+.dark .filter-chip {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: #CBD5E1 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.dark .filter-chip:hover {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+  border-color: #3B82F6 !important;
+  color: #3B82F6 !important;
+}
+.dark .filter-chip.active {
+  background-color: #2563EB !important;
+  color: #FFFFFF !important;
+  border-color: #2563EB !important;
+}
+
+/* Date picker custom layout */
+.date-picker-custom {
+  @apply h-8 text-xs px-2.5 py-1 rounded-lg border outline-none font-medium transition-all duration-150;
+  background-color: #FFFFFF;
+  border-color: #E2E8F0;
+  color: #0F172A;
+}
+.date-picker-custom:hover {
+  border-color: #94A3B8;
+}
+.dark .date-picker-custom {
+  background-color: #111827 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
+}
+.dark .date-picker-custom:hover {
+  background-color: #1F2937 !important;
+  border-color: #3B82F6 !important;
+}
