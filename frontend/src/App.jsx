@@ -39,7 +39,7 @@ function PageLoader() {
 // ─── App ──────────────────────────────────────────────────────────────────────
 export default function App() {
   const { isAuthenticated } = useAuthStore()
-  const { setAvailableModels } = useFilterStore()
+  const { availableModels, setAvailableModels } = useFilterStore()
   const { theme } = useUIStore()
 
   // Apply theme class to HTML element
@@ -77,9 +77,11 @@ export default function App() {
       })
       .catch(() => {
         // fallback to defaults if cache is empty
-        setAvailableModels((curr) => curr.length > 0 ? curr : ['mistral', 'gpt-4o-mini', 'llama3'])
+        if (!availableModels || availableModels.length === 0) {
+          setAvailableModels(['mistral', 'gpt-4o-mini', 'llama3'])
+        }
       })
-  }, [isAuthenticated, setAvailableModels])
+  }, [isAuthenticated, availableModels, setAvailableModels])
 
   return (
     <Suspense fallback={<PageLoader />}>
