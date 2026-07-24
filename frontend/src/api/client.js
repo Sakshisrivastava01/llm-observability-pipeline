@@ -28,8 +28,8 @@ const apiClient = axios.create({
     } catch (e) {
       console.warn('Guest intercept error', e)
     }
-    const defaultAdapter = axios.getAdapter ? axios.getAdapter(axios.defaults.adapter) : axios.defaults.adapter
-    return defaultAdapter(config)
+    const { adapter, ...configWithoutAdapter } = config
+    return axios(configWithoutAdapter)
   }
 })
 
