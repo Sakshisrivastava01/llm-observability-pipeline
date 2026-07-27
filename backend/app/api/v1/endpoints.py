@@ -14,7 +14,7 @@ from app.sdk.context import SpanContext, TraceContext
 from app.services.analytics_service import AnalyticsService
 from app.services.evaluation_service import EvaluationService
 from app.services.telemetry_service import TelemetryService
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from sqlalchemy import func, select
@@ -1570,6 +1570,81 @@ async def get_tracked_models(
     return models
 
 
+@router.post("/admin/seed")
+async def run_seed(
+    x_admin_key: str = Header(..., alias="X-Admin-Key"),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    import os
+    import random
+    import uuid
+    from datetime import datetime, timedelta, timezone
+
+    if x_admin_key != os.getenv("ADMIN_SECRET_KEY", "seed-secret-2024"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    models = ["gpt-4o", "gpt-4o-mini", "mistral", "llama3"]
+
+    traces_inserted = 0
+    for i in range(500):
+        days_ago = random.randint(0, 30)
+        created = datetime.now(timezone.utc) - timedelta(
+            days=days_ago, hours=random.randint(0, 23), minutes=random.randint(0, 59)
+        )
+        model = random.choice(models)
+        latency = random.gauss(350, 120)
+        latency = max(50, latency)
+
+        cost_map = {
+            "gpt-4o": 0.000005,
+            "gpt-4o-mini": 0.00000015,
+            "mistral": 0.0,
+            "llama3": 0.0,
+        }
+
+        prompt_tokens = random.randint(100, 2000)
+        completion_tokens = random.randint(50, 500)
+        cost = (prompt_tokens + completion_tokens) * cost_map[model]
+
+        t_id = str(uuid.uuid4())
+
+        trace = Trace(
+            trace_id=t_id,
+            name="chat_completion_pipeline",
+            start_time=created,
+            end_time=created + timedelta(milliseconds=latency),
+            input_data={"prompt": "Synthetic seed query."},
+            output_data={"response": "Synthetic seed response."},
+            custom_metadata={"environment": "production"},
+        )
+        db.add(trace)
+
+        span = Span(
+            span_id=f"sp-{t_id}",
+            trace_id=t_id,
+            name="completion_step",
+            span_type="llm",
+            start_time=created,
+            end_time=created + timedelta(milliseconds=latency),
+            model_name=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+            cost=cost,
+            input_data={"prompt": "Synthetic seed query."},
+            output_data={"response": "Synthetic seed response."},
+            custom_metadata={},
+        )
+        db.add(span)
+
+        traces_inserted += 1
+
+    await db.flush()
+    await db.commit()
+
+    return {"message": "Seed completed", "traces_inserted": traces_inserted}
+
+
 exempt_paths = [
     "/auth/register",
     "/auth/login",
@@ -1577,6 +1652,7 @@ exempt_paths = [
     "/auth/reset-password",
     "/health",
     "/traces",
+    "/admin/seed",
 ]
 
 for route in router.routes:
