@@ -17,7 +17,12 @@ if "postgresql" in settings.DATABASE_URL:
         }
     )
     if settings.ENVIRONMENT == "production":
-        engine_kwargs["connect_args"] = {"ssl": True}
+        import ssl
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        engine_kwargs["connect_args"] = {"ssl": ctx}
 
 engine = create_async_engine(
     settings.DATABASE_URL,
