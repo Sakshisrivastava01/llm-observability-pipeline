@@ -1577,72 +1577,86 @@ async def run_seed(
 ) -> dict[str, Any]:
     import os
     import random
+    import traceback
     import uuid
     from datetime import datetime, timedelta, timezone
+
+    import structlog
+
+    logger = structlog.get_logger("app")
 
     if x_admin_key != os.getenv("ADMIN_SECRET_KEY", "seed-secret-2024"):
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    models = ["gpt-4o", "gpt-4o-mini", "mistral", "llama3"]
+    try:
+        models = ["gpt-4o", "gpt-4o-mini", "mistral", "llama3"]
+        traces_to_add = []
+        spans_to_add = []
 
-    traces_inserted = 0
-    for i in range(500):
-        days_ago = random.randint(0, 30)
-        created = datetime.now(timezone.utc) - timedelta(
-            days=days_ago, hours=random.randint(0, 23), minutes=random.randint(0, 59)
+        for i in range(500):
+            days_ago = random.randint(0, 30)
+            created = datetime.now(timezone.utc) - timedelta(
+                days=days_ago,
+                hours=random.randint(0, 23),
+                minutes=random.randint(0, 59),
+            )
+            model = random.choice(models)
+            latency = random.gauss(350, 120)
+            latency = max(50, latency)
+
+            cost_map = {
+                "gpt-4o": 0.000005,
+                "gpt-4o-mini": 0.00000015,
+                "mistral": 0.0,
+                "llama3": 0.0,
+            }
+
+            prompt_tokens = random.randint(100, 2000)
+            completion_tokens = random.randint(50, 500)
+            cost = (prompt_tokens + completion_tokens) * cost_map[model]
+
+            t_id = str(uuid.uuid4())
+
+            trace = Trace(
+                trace_id=t_id,
+                name="chat_completion_pipeline",
+                start_time=created,
+                end_time=created + timedelta(milliseconds=latency),
+                input_data={"prompt": "Synthetic seed query."},
+                output_data={"response": "Synthetic seed response."},
+                custom_metadata={"environment": "production"},
+            )
+            traces_to_add.append(trace)
+
+            span = Span(
+                span_id=f"sp-{t_id}",
+                trace_id=t_id,
+                name="completion_step",
+                span_type="llm",
+                start_time=created,
+                end_time=created + timedelta(milliseconds=latency),
+                model_name=model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                total_tokens=prompt_tokens + completion_tokens,
+                cost=cost,
+                input_data={"prompt": "Synthetic seed query."},
+                output_data={"response": "Synthetic seed response."},
+                custom_metadata={},
+            )
+            spans_to_add.append(span)
+
+        db.add_all(traces_to_add)
+        db.add_all(spans_to_add)
+        await db.commit()
+
+        return {"message": "Seed completed", "traces_inserted": len(traces_to_add)}
+
+    except Exception as e:
+        logger.error(
+            "Admin seed failed", error=str(e), traceback=traceback.format_exc()
         )
-        model = random.choice(models)
-        latency = random.gauss(350, 120)
-        latency = max(50, latency)
-
-        cost_map = {
-            "gpt-4o": 0.000005,
-            "gpt-4o-mini": 0.00000015,
-            "mistral": 0.0,
-            "llama3": 0.0,
-        }
-
-        prompt_tokens = random.randint(100, 2000)
-        completion_tokens = random.randint(50, 500)
-        cost = (prompt_tokens + completion_tokens) * cost_map[model]
-
-        t_id = str(uuid.uuid4())
-
-        trace = Trace(
-            trace_id=t_id,
-            name="chat_completion_pipeline",
-            start_time=created,
-            end_time=created + timedelta(milliseconds=latency),
-            input_data={"prompt": "Synthetic seed query."},
-            output_data={"response": "Synthetic seed response."},
-            custom_metadata={"environment": "production"},
-        )
-        db.add(trace)
-
-        span = Span(
-            span_id=f"sp-{t_id}",
-            trace_id=t_id,
-            name="completion_step",
-            span_type="llm",
-            start_time=created,
-            end_time=created + timedelta(milliseconds=latency),
-            model_name=model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=prompt_tokens + completion_tokens,
-            cost=cost,
-            input_data={"prompt": "Synthetic seed query."},
-            output_data={"response": "Synthetic seed response."},
-            custom_metadata={},
-        )
-        db.add(span)
-
-        traces_inserted += 1
-
-    await db.flush()
-    await db.commit()
-
-    return {"message": "Seed completed", "traces_inserted": traces_inserted}
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 exempt_paths = [
