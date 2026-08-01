@@ -28,8 +28,16 @@ const apiClient = axios.create({
     } catch (e) {
       console.warn('Guest intercept error', e)
     }
+    const buildFullPath = (baseURL, relativeURL) => {
+      if (!baseURL) return relativeURL
+      if (relativeURL && (relativeURL.startsWith('http://') || relativeURL.startsWith('https://'))) {
+        return relativeURL
+      }
+      return baseURL.replace(/\/+$/, '') + '/' + relativeURL.replace(/^\/+/, '')
+    }
+    const fullURL = buildFullPath(config.baseURL, config.url)
     const { adapter, baseURL, ...configWithoutAdapter } = config
-    return axios({ ...configWithoutAdapter, baseURL: '' })
+    return axios({ ...configWithoutAdapter, url: fullURL, baseURL: '' })
   }
 })
 
